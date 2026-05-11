@@ -599,10 +599,7 @@
               <input type="number" id="plasterPerFloor" value="25000">
             </div>
           </div>
-          <div class="field">
-            <label>Round To Nearest (Rs.)</label>
-            <input type="number" id="roundTo" value="500">
-          </div>
+          <div class="help" style="margin-top: 4px;">All amounts rounded to the nearest Rs. 5,000.</div>
         </div>
       </div>
 
@@ -638,7 +635,7 @@
             </div>
             <div class="cell">
               <div class="label">Sum of Active %s <span id="pctBadge"></span></div>
-              <div class="value" id="sumPct">—<span class="sub">target ~96%</span></div>
+              <div class="value" id="sumPct">—<span class="sub">target ~95%</span></div>
             </div>
             <div class="cell">
               <div class="label">Final Installment <span id="finalBadge"></span></div>
@@ -695,42 +692,47 @@
 ========================================================= */
 
 // Budget allocation (% of total project cost)
-//   10% advance + 10% underground + 60% floors + 10% inside plaster
-//   + 5% outside plaster + 1% parapet + 4% final installment = 100%
+// Sums to 95% across all milestones; the final installment is exactly 5%.
+//   15% Advance + 20% Foundation + 40% Floors + 10% Inside Plaster
+//   + 5% Outside Plaster + 5% Parapet + 5% Final = 100%
+// Within each bucket, weights below give a larger share to labour-intensive items
+// (concrete pours, centering/shuttering, block work).
 const BUDGET = {
-  advance:        0.10,
-  underground:    0.10,
-  floors:         0.60, // split equally across N floors
-  insidePlaster:  0.10, // split equally across N floors
+  advance:        0.15,
+  foundation:     0.20,
+  floors:         0.40,   // split equally across N floors (40/N per floor)
+  insidePlaster:  0.10,   // split equally across N floors (10/N per floor)
   outsidePlaster: 0.05,
-  parapet:        0.01,
-  // final installment = whatever's left (~4%)
+  parapet:        0.05,
+  // final installment = 0.05 (the remaining 5%)
 };
 
-// Underground (post-advance foundation) — weights distribute the 10% bucket
+// Foundation post-advance — weight-distributed within the 20% bucket.
+// Heaviest weight: concrete pours (footing, plinth) — labour intensive.
 const UNDERGROUND_ITEMS = [
-  { name: "PCC",                          weight: 3,    floor: null },
-  { name: "Footing Concrete",             weight: 9,    floor: "footing" },
-  { name: "Footing Column Reinforcement", weight: 1,    floor: null },
-  { name: "Footing Column Centering",     weight: 1,    floor: null },
-  { name: "Footing Column Concrete",      weight: 1.5,  floor: null },
-  { name: "Sidestone Work",               weight: 1.5,  floor: null },
-  { name: "Plinth Beam Reinforcement",    weight: 1.5,  floor: null },
-  { name: "Plinth Beam Centering",        weight: 2.5,  floor: null },
-  { name: "Plinth Beam Concrete",         weight: 2.5,  floor: "plinth" },
+  { name: "PCC",                          weight: 1.5, floor: null },
+  { name: "Footing Concrete",             weight: 5,   floor: "footing" },
+  { name: "Footing Column Reinforcement", weight: 1,   floor: null },
+  { name: "Footing Column Centering",     weight: 1,   floor: null },
+  { name: "Footing Column Concrete",      weight: 1.5, floor: null },
+  { name: "Sidestone Work",               weight: 2,   floor: null },
+  { name: "Plinth Beam Reinforcement",    weight: 1.5, floor: null },
+  { name: "Plinth Beam Centering",        weight: 3,   floor: null },
+  { name: "Plinth Beam Concrete",         weight: 3.5, floor: "plinth" },
 ];
 
-// Per-floor structural — weights distribute the 60%/N bucket per floor
+// Per-floor structural — weight-distributed within the (40/N)% per-floor bucket.
+// Heaviest weights: slab concrete pour, slab centering — most labour intensive.
 const FLOOR_ITEMS = [
-  { name: "Column Reinforcement",       weight: 1.5,  floor: null },
-  { name: "Column Centering",           weight: 1.5,  floor: null },
-  { name: "Column Concrete",            weight: 2.0,  floor: null },
-  { name: "Lintel Level Block Work",    weight: 3.0,  floor: null },
-  { name: "Lintel Concrete",            weight: 3.5,  floor: null },
-  { name: "Slab Level Block Work",      weight: 0.75, floor: null },
-  { name: "Slab Centering",             weight: 3.5,  floor: null },
-  { name: "Slab Reinforcement",         weight: 2.0,  floor: null },
-  { name: "Slab Concrete",              weight: 7.0,  floor: "slab" },
+  { name: "Column Reinforcement",       weight: 1,    floor: null },
+  { name: "Column Centering",           weight: 1,    floor: null },
+  { name: "Column Concrete",            weight: 1.5,  floor: null },
+  { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
+  { name: "Lintel Concrete",            weight: 3,    floor: null },
+  { name: "Slab Level Block Work",      weight: 1,    floor: null },
+  { name: "Slab Centering",             weight: 4,    floor: null },
+  { name: "Slab Reinforcement",         weight: 1,    floor: null },
+  { name: "Slab Concrete",              weight: 5,    floor: "slab" },
 ];
 
 const FLOOR_NAMES = ["Ground Floor", "First Floor", "Second Floor", "Third Floor", "Fourth Floor"];
@@ -753,16 +755,16 @@ function buildRows() {
   const N = clampFloors(num("totalFloors", 2));
   const out = [];
 
-  // 1. Advance (10%)
+  // 1. Advance (15%)
   out.push({ phase: "Foundation", name: "Advance", pct: BUDGET.advance, floor: null, active: true });
 
-  // 2. Underground / Foundation post-advance (10%, weight-distributed)
+  // 2. Foundation post-advance (20%, weight-distributed)
   const undergroundSum = UNDERGROUND_ITEMS.reduce((a, b) => a + b.weight, 0);
   for (const item of UNDERGROUND_ITEMS) {
     out.push({
       phase: "Foundation",
       name: item.name,
-      pct: (item.weight / undergroundSum) * BUDGET.underground,
+      pct: (item.weight / undergroundSum) * BUDGET.foundation,
       floor: item.floor,
       active: true,
     });
@@ -821,6 +823,8 @@ function buildRows() {
 /* =========================================================
    MATH
 ========================================================= */
+const ROUND_TO = 5000; // amounts rounded to nearest Rs. 5,000
+
 function getInputs() {
   return {
     plotArea:        num("plotArea", 1200),
@@ -832,7 +836,7 @@ function getInputs() {
     matFootingMin:   num("matFootingMin", 50000),
     slabMin:         num("slabMin", 50000),
     plasterPerFloor: num("plasterPerFloor", 25000),
-    roundTo:         Math.max(1, num("roundTo", 500)),
+    roundTo:         ROUND_TO,
   };
 }
 
@@ -903,11 +907,11 @@ function renderAll() {
   document.getElementById("sumCost").textContent = fmtRs(plan.totalCost);
 
   const sumPctEl = document.getElementById("sumPct");
-  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">target ~96%</span>`;
-  // Color the value based on sumPct distance from target
+  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">target ~95%</span>`;
+  // Color the value based on sumPct distance from 95% target
   sumPctEl.classList.remove("warn", "good");
   const pctBadge = document.getElementById("pctBadge");
-  if (plan.sumPct >= 0.94 && plan.sumPct <= 0.98) {
+  if (plan.sumPct >= 0.94 && plan.sumPct <= 0.96) {
     sumPctEl.classList.add("good");
     pctBadge.innerHTML = '<span class="badge good">on target</span>';
   } else {
@@ -1307,7 +1311,6 @@ const DEFAULT_INPUTS = {
   matFootingMin: 50000,
   slabMin: 50000,
   plasterPerFloor: 25000,
-  roundTo: 500,
 };
 const INPUT_IDS = Object.keys(DEFAULT_INPUTS);
 
