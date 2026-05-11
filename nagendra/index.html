@@ -824,8 +824,9 @@ function getInputs() {
   };
 }
 
-const ADVANCE_MIN  = 50000; // floor on the Advance line item
-const CONCRETE_MIN = 20000; // floor on every concrete pour (mixing fee)
+const ADVANCE_MIN  = 50000;  // floor on the Advance line item
+const ADVANCE_MAX  = 100000; // ceiling on the Advance line item (1 lakh)
+const CONCRETE_MIN = 20000;  // floor on every concrete pour (mixing fee)
 
 function floorValue(row, inp) {
   switch (row.floor) {
@@ -909,6 +910,12 @@ function computePlan() {
         active: true,
       });
     }
+  }
+
+  // Pass 1.5: cap Advance at ADVANCE_MAX (any excess flows into the final installment)
+  const advRow = computed.find(r => r.floor === "advance");
+  if (advRow && advRow.amount > ADVANCE_MAX) {
+    advRow.amount = ADVANCE_MAX;
   }
 
   // Pass 2: override outside plastering = half of inside plastering total
@@ -1040,7 +1047,7 @@ function renderAll() {
     if (row.floor === "footing" || row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "concrete") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "advance") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "advance") floorTag = `<span class="min-pay-tag team">${fmtIN(ADVANCE_MIN)} – ${fmtIN(ADVANCE_MAX)}</span>`;
     else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
 
