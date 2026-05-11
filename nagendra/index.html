@@ -19,6 +19,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+<script>
+function googleTranslateElementInit() {
+  new google.translate.TranslateElement({
+    pageLanguage: "en",
+    includedLanguages: "hi",
+    autoDisplay: false,
+  }, "google_translate_element");
+}
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cbk=googleTranslateElementInit"></script>
 <style>
   :root {
     --ink:        #1a1814;
@@ -97,6 +107,36 @@
     color: var(--ink-soft);
   }
   .builder-tag strong { font-style: normal; font-weight: 600; color: var(--ink); }
+
+  /* Language switcher */
+  .lang-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lang-btn {
+    background: var(--paper-3);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    padding: 7px 14px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .lang-btn:hover { background: var(--paper-2); }
+  .lang-btn.active { background: var(--accent-2); color: var(--ink); }
+  #google_translate_element { display: none; }
+
+  /* Suppress the Google Translate top banner */
+  .goog-te-banner-frame.skiptranslate,
+  .skiptranslate > iframe { display: none !important; }
+  body { top: 0 !important; }
+  .goog-tooltip, .goog-tooltip:hover { display: none !important; }
+  .goog-text-highlight { background: none !important; box-shadow: none !important; }
 
   /* Layout */
   .grid {
@@ -508,8 +548,12 @@
       <span class="eyebrow">Labour Construction Agreement</span>
       <h1>Payment <em>Plan</em></h1>
     </div>
-    <div class="builder-tag">
-      Builder &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
+    <div class="lang-switch">
+      <button id="hindiToggle" class="lang-btn notranslate" type="button" title="हिंदी में देखें">हिंदी</button>
+      <div id="google_translate_element"></div>
+      <div class="builder-tag notranslate">
+        Builder &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
+      </div>
     </div>
   </header>
 
@@ -1484,8 +1528,55 @@ function init() {
   const dlBtn = document.getElementById("downloadBtn");
   if (dlBtn) dlBtn.addEventListener("click", generatePDF);
 
+  wireHindiToggle();
+
   renderExtras();
   renderAll();
+}
+
+// Hindi toggle: click to translate the page to Hindi (and back to English).
+// Also auto-translates on first load when the browser language is Hindi.
+function wireHindiToggle() {
+  const btn = document.getElementById("hindiToggle");
+  if (!btn) return;
+  let translated = false;
+
+  function setLanguage(code) {
+    // The Google Translate widget injects a <select.goog-te-combo>.
+    // We poll briefly because the widget loads async.
+    let tries = 0;
+    (function attempt() {
+      const sel = document.querySelector(".goog-te-combo");
+      if (sel) {
+        sel.value = code;
+        sel.dispatchEvent(new Event("change"));
+      } else if (tries++ < 30) {
+        setTimeout(attempt, 200);
+      }
+    })();
+  }
+
+  btn.addEventListener("click", () => {
+    translated = !translated;
+    if (translated) {
+      setLanguage("hi");
+      btn.classList.add("active");
+      btn.textContent = "English";
+    } else {
+      setLanguage("");
+      btn.classList.remove("active");
+      btn.textContent = "हिंदी";
+    }
+  });
+
+  // Auto-translate if visitor's browser prefers Hindi
+  const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
+  if (langs.some(l => l.startsWith("hi"))) {
+    translated = true;
+    setLanguage("hi");
+    btn.classList.add("active");
+    btn.textContent = "English";
+  }
 }
 window.addEventListener("DOMContentLoaded", init);
 </script>
