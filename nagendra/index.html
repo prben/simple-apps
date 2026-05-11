@@ -710,11 +710,11 @@ const BUDGET = {
 // Foundation post-advance — weight-distributed within the 20% bucket.
 // Heaviest weight: concrete pours (footing, plinth) — labour intensive.
 const UNDERGROUND_ITEMS = [
-  { name: "PCC",                          weight: 1.5, floor: null },
+  { name: "PCC",                          weight: 1.5, floor: "concrete" },
   { name: "Footing Concrete",             weight: 5,   floor: "footing" },
   { name: "Footing Column Reinforcement", weight: 1,   floor: null },
   { name: "Footing Column Centering",     weight: 1,   floor: null },
-  { name: "Footing Column Concrete",      weight: 1.5, floor: null },
+  { name: "Footing Column Concrete",      weight: 1.5, floor: "concrete" },
   { name: "Sidestone Work",               weight: 2,   floor: null },
   { name: "Plinth Beam Reinforcement",    weight: 1.5, floor: null },
   { name: "Plinth Beam Centering",        weight: 3,   floor: null },
@@ -726,9 +726,9 @@ const UNDERGROUND_ITEMS = [
 const FLOOR_ITEMS = [
   { name: "Column Reinforcement",       weight: 1,    floor: null },
   { name: "Column Centering",           weight: 1,    floor: null },
-  { name: "Column Concrete",            weight: 1.5,  floor: null },
+  { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
-  { name: "Lintel Concrete",            weight: 3,    floor: null },
+  { name: "Lintel Concrete",            weight: 3,    floor: "concrete" },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
   { name: "Slab Centering",             weight: 4,    floor: null },
   { name: "Slab Reinforcement",         weight: 1,    floor: null },
@@ -757,7 +757,7 @@ function buildSections(N) {
   sections.push({
     phase: "Foundation",
     budget: BUDGET.advance,
-    items: [{ name: "Advance", weight: 1, floor: null }],
+    items: [{ name: "Advance", weight: 1, floor: "advance" }],
   });
 
   // S2: Foundation post-advance (20%)
@@ -824,11 +824,16 @@ function getInputs() {
   };
 }
 
+const ADVANCE_MIN  = 50000; // floor on the Advance line item
+const CONCRETE_MIN = 20000; // floor on every concrete pour (mixing fee)
+
 function floorValue(row, inp) {
   switch (row.floor) {
-    case "footing":         return inp.footingType === "Full-Mat" ? inp.matFootingMin : inp.plinthMin;
-    case "plinth":          return inp.plinthMin;
-    case "slab":            return inp.slabMin;
+    case "advance":         return ADVANCE_MIN;
+    case "concrete":        return CONCRETE_MIN;
+    case "footing":         return Math.max(CONCRETE_MIN, inp.footingType === "Full-Mat" ? inp.matFootingMin : inp.plinthMin);
+    case "plinth":          return Math.max(CONCRETE_MIN, inp.plinthMin);
+    case "slab":            return Math.max(CONCRETE_MIN, inp.slabMin);
     case "plaster":         return inp.plasterPerFloor;
     case "outside_plaster": return 0; // derived: half of inside plastering total
     default:                return 0;
@@ -912,6 +917,32 @@ function computePlan() {
   if (outsideRow && insideRows.length > 0) {
     const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
     outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+  }
+
+  // Pass 2.5: if final installment is below 5%, trim the highest line items
+  // in roundTo (5k) increments until final hits target. Per-item floors are
+  // honoured (advance 50k, concrete 20k, slab/footing/plinth mins, plaster min).
+  // Outside Plastering is skipped — it's derived from inside.
+  const targetFinal = mround(0.05 * totalCost, inp.roundTo);
+  for (let safety = 0; safety < 500; safety++) {
+    const currentSum = computed.reduce((s, r) => s + r.amount, 0);
+    const currentFinal = totalCost - currentSum;
+    if (currentFinal >= targetFinal) break;
+
+    const cuttable = computed
+      .filter(r => r.floor !== "outside_plaster")
+      .filter(r => r.amount - floorValue(r, inp) >= inp.roundTo)
+      .sort((a, b) => b.amount - a.amount);
+    if (cuttable.length === 0) break;
+
+    cuttable[0].amount -= inp.roundTo;
+
+    // Re-derive outside in case a cut changed an inside-plaster row
+    // (cuts only target non-outside rows, but inside rows can be cut → outside shifts)
+    if (outsideRow && insideRows.length > 0) {
+      const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+    }
   }
 
   // Pass 3: derive pct, cumulative, pending
@@ -1008,6 +1039,8 @@ function renderAll() {
     let floorTag = "";
     if (row.floor === "footing" || row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "concrete") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "advance") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
 
