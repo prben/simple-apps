@@ -19,6 +19,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+<script>
+function googleTranslateElementInit() {
+  new google.translate.TranslateElement({
+    pageLanguage: "en",
+    includedLanguages: "hi",
+    autoDisplay: false,
+  }, "google_translate_element");
+}
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cbk=googleTranslateElementInit"></script>
 <style>
   :root {
     --ink:        #1a1814;
@@ -97,6 +107,36 @@
     color: var(--ink-soft);
   }
   .builder-tag strong { font-style: normal; font-weight: 600; color: var(--ink); }
+
+  /* Language switcher */
+  .lang-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lang-btn {
+    background: var(--paper-3);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    padding: 7px 14px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .lang-btn:hover { background: var(--paper-2); }
+  .lang-btn.active { background: var(--accent-2); color: var(--ink); }
+  #google_translate_element { display: none; }
+
+  /* Suppress the Google Translate top banner */
+  .goog-te-banner-frame.skiptranslate,
+  .skiptranslate > iframe { display: none !important; }
+  body { top: 0 !important; }
+  .goog-tooltip, .goog-tooltip:hover { display: none !important; }
+  .goog-text-highlight { background: none !important; box-shadow: none !important; }
 
   /* Layout */
   .grid {
@@ -508,8 +548,12 @@
       <span class="eyebrow">Labour Construction Agreement</span>
       <h1>Payment <em>Plan</em></h1>
     </div>
-    <div class="builder-tag">
-      Builder &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
+    <div class="lang-switch">
+      <button id="hindiToggle" class="lang-btn notranslate" type="button" title="हिंदी में देखें">हिंदी</button>
+      <div id="google_translate_element"></div>
+      <div class="builder-tag notranslate">
+        Builder &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
+      </div>
     </div>
   </header>
 
@@ -728,7 +772,7 @@ const FLOOR_ITEMS = [
   { name: "Column Centering",           weight: 1,    floor: null },
   { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
-  { name: "Lintel Concrete",            weight: 3,    floor: "concrete" },
+  { name: "Lintel Concrete",            weight: 3,    floor: "lintel" },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
   { name: "Slab Centering",             weight: 4,    floor: null },
   { name: "Slab Reinforcement",         weight: 1,    floor: null },
@@ -832,33 +876,48 @@ const TWO_MIXER_AREA  = 850;    // floor mat above this sqft needs 2 mixers
 const SIDESTONE_RATE  = 66;     // Rs. per running foot of stone work
 const SIDESTONE_RATIO = 0.134;  // running ft per sqft of building area
 const SMALL_BUILDUP   = 1000;   // total built-up below this → halve all mins/caps
+const MIN_PER_STEP    = 5000;   // every milestone line is at least Rs. 5,000
 
 // All mins/caps are halved when the total built-up area is small.
 function minScale(inp) {
   return (inp.buaPerFloor * inp.totalFloors) < SMALL_BUILDUP ? 0.5 : 1.0;
 }
 
+// Lintel concrete cap, tiered by per-floor built-up area.
+function lintelMax(inp) {
+  const a = inp.buaPerFloor;
+  if (a <= 900)  return 10000;
+  if (a <= 1000) return 20000;
+  if (a <= 3000) return 30000;
+  return Infinity;
+}
+
 function floorValue(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
+  let m;
   switch (row.floor) {
-    case "advance":  return scale(ADVANCE_MIN);
-    case "concrete": return scale(CONCRETE_MIN);
+    case "advance":  m = scale(ADVANCE_MIN); break;
+    case "concrete": m = scale(CONCRETE_MIN); break;
     case "footing": {
       if (inp.footingType === "Full-Mat") {
         const twoMixers = inp.buaPerFloor > TWO_MIXER_AREA;
         const baseMin = twoMixers ? FOOTING_MAX : inp.matFootingMin;
-        return Math.max(scale(CONCRETE_MIN), scale(baseMin));
+        m = Math.max(scale(CONCRETE_MIN), scale(baseMin));
+      } else {
+        m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
       }
-      return Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
+      break;
     }
-    case "plinth":    return Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
-    case "slab":      return Math.max(scale(CONCRETE_MIN), scale(inp.slabMin));
-    case "plaster":   return scale(inp.plasterPerFloor);
-    case "sidestone": return Math.round(inp.buaPerFloor * SIDESTONE_RATIO * SIDESTONE_RATE * k);
+    case "plinth":    m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin)); break;
+    case "slab":      m = Math.max(scale(CONCRETE_MIN), scale(inp.slabMin)); break;
+    case "plaster":   m = scale(inp.plasterPerFloor); break;
+    case "sidestone": m = Math.round(inp.buaPerFloor * SIDESTONE_RATIO * SIDESTONE_RATE * k); break;
+    case "lintel":    m = 0; break; // no specific min; universal MIN_PER_STEP applies
     case "outside_plaster": return 0; // derived: half of inside plastering total
-    default:          return 0;
+    default:          m = 0;
   }
+  return Math.max(MIN_PER_STEP, m);
 }
 
 // Size-based cap on the final installment.
@@ -871,13 +930,15 @@ function finalCap(totalCost) {
 }
 
 // Per-row upper bound. Advance ≤ 1L. Footing concrete ≤ 65k.
-// All caps are also halved for small projects via minScale.
+// Lintel concrete ≤ 10k/20k/30k tiered by per-floor area.
+// Advance/Footing caps are halved for small projects via minScale.
 function ceilFor(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
   switch (row.floor) {
     case "advance": return scale(ADVANCE_MAX);
     case "footing": return Math.max(floorValue(row, inp), scale(FOOTING_MAX));
+    case "lintel":  return Math.max(floorValue(row, inp), lintelMax(inp));
     default:        return Infinity;
   }
 }
@@ -965,7 +1026,7 @@ function computePlan() {
   const outsideRow = computed.find(r => r.floor === "outside_plaster");
   if (outsideRow && insideRows.length > 0) {
     const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
-    outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+    outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
   }
 
   // Pass 2.5: if final installment is below 5%, trim the highest line items
@@ -990,7 +1051,7 @@ function computePlan() {
     // (cuts only target non-outside rows, but inside rows can be cut → outside shifts)
     if (outsideRow && insideRows.length > 0) {
       const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
-      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+      outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
     }
   }
 
@@ -1013,7 +1074,7 @@ function computePlan() {
 
     if (outsideRow && insideRows.length > 0) {
       const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
-      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+      outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
     }
   }
 
@@ -1116,6 +1177,7 @@ function renderAll() {
     else if (row.floor === "sidestone") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
+    else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
@@ -1484,8 +1546,55 @@ function init() {
   const dlBtn = document.getElementById("downloadBtn");
   if (dlBtn) dlBtn.addEventListener("click", generatePDF);
 
+  wireHindiToggle();
+
   renderExtras();
   renderAll();
+}
+
+// Hindi toggle: click to translate the page to Hindi (and back to English).
+// Also auto-translates on first load when the browser language is Hindi.
+function wireHindiToggle() {
+  const btn = document.getElementById("hindiToggle");
+  if (!btn) return;
+  let translated = false;
+
+  function setLanguage(code) {
+    // The Google Translate widget injects a <select.goog-te-combo>.
+    // We poll briefly because the widget loads async.
+    let tries = 0;
+    (function attempt() {
+      const sel = document.querySelector(".goog-te-combo");
+      if (sel) {
+        sel.value = code;
+        sel.dispatchEvent(new Event("change"));
+      } else if (tries++ < 30) {
+        setTimeout(attempt, 200);
+      }
+    })();
+  }
+
+  btn.addEventListener("click", () => {
+    translated = !translated;
+    if (translated) {
+      setLanguage("hi");
+      btn.classList.add("active");
+      btn.textContent = "English";
+    } else {
+      setLanguage("");
+      btn.classList.remove("active");
+      btn.textContent = "हिंदी";
+    }
+  });
+
+  // Auto-translate if visitor's browser prefers Hindi
+  const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
+  if (langs.some(l => l.startsWith("hi"))) {
+    translated = true;
+    setLanguage("hi");
+    btn.classList.add("active");
+    btn.textContent = "English";
+  }
 }
 window.addEventListener("DOMContentLoaded", init);
 </script>
