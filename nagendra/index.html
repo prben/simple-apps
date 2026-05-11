@@ -419,13 +419,84 @@
   }
 
   /* Responsive */
+  @media (max-width: 980px) {
+    body { padding: 24px 16px 60px; }
+    header {
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 18px;
+      margin-bottom: 24px;
+    }
+    .builder-tag { text-align: left; }
+    .grid { gap: 20px; }
+  }
+
   @media (max-width: 640px) {
+    html, body { font-size: 14.5px; }
     body { padding: 16px 12px 60px; }
+    .container { padding: 0; }
+
+    .panel-head { padding: 10px 14px; }
+    .panel-head h2 { font-size: 15px; }
+    .panel-head .meta { font-size: 9px; letter-spacing: 0.1em; }
     .panel-body { padding: 14px 12px; }
-    .summary-grid .value { font-size: 18px; }
+
+    /* Prevent iOS auto-zoom on focus (needs >=16px) */
+    .field input, .field select, .field textarea,
+    .extra-item input {
+      font-size: 16px;
+      padding: 10px 11px;
+    }
+    .field .help { font-size: 11px; }
+    .row-2 { gap: 8px; }
+
+    .summary-grid { grid-template-columns: 1fr; }
+    .summary-grid .cell {
+      border-right: 0;
+      border-bottom: 1px solid var(--rule-soft);
+    }
+    .summary-grid .cell:last-child { border-bottom: 0; }
+    .summary-grid .value { font-size: 20px; }
+
     .plan-table { font-size: 12.5px; }
     .plan-table tbody td, .plan-table thead th { padding: 6px 8px; }
-    .pct-input { width: 54px; font-size: 12px; }
+    .plan-table thead th { font-size: 9.5px; letter-spacing: 0.08em; }
+    .pct-input {
+      width: 56px;
+      font-size: 14px;
+      padding: 4px 4px;
+      border-color: var(--rule);
+      background: var(--paper);
+    }
+    .min-pay-tag { font-size: 9px; padding: 1px 5px; margin-left: 4px; }
+    .milestone-cell { flex-wrap: wrap; gap: 2px 6px; }
+
+    .actions {
+      padding: 16px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 14px;
+    }
+    .actions > div:last-child {
+      width: 100%;
+      flex-direction: column;
+    }
+    .btn { width: 100%; padding: 14px 22px; }
+
+    .extra-item { grid-template-columns: 1fr; gap: 4px; }
+    .extra-item input[type="text"]:nth-of-type(2) { text-align: left; }
+
+    .page-footer { margin-top: 32px; font-size: 12px; }
+  }
+
+  @media (max-width: 420px) {
+    .brand h1 { font-size: 28px; }
+    .plan-table { font-size: 12px; }
+    .plan-table tbody td, .plan-table thead th { padding: 5px 6px; }
+    /* Hide the "Pending" column on very narrow screens */
+    .plan-table thead th:nth-child(5),
+    .plan-table tbody td:nth-child(5) { display: none; }
+    .pct-input { width: 50px; font-size: 13px; }
   }
 </style>
 </head>
