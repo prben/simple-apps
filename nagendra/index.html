@@ -649,7 +649,7 @@
       <div class="panel">
         <div class="panel-head">
           <h2>Payment Plan</h2>
-          <span class="meta">% editable in column</span>
+          <span class="meta">auto-allocated</span>
         </div>
         <div class="panel-body" style="padding: 0; overflow-x: auto;">
           <table class="plan-table" id="planTable">
@@ -710,11 +710,11 @@ const BUDGET = {
 // Foundation post-advance — weight-distributed within the 20% bucket.
 // Heaviest weight: concrete pours (footing, plinth) — labour intensive.
 const UNDERGROUND_ITEMS = [
-  { name: "PCC",                          weight: 1.5, floor: null },
+  { name: "PCC",                          weight: 1.5, floor: "concrete" },
   { name: "Footing Concrete",             weight: 5,   floor: "footing" },
   { name: "Footing Column Reinforcement", weight: 1,   floor: null },
   { name: "Footing Column Centering",     weight: 1,   floor: null },
-  { name: "Footing Column Concrete",      weight: 1.5, floor: null },
+  { name: "Footing Column Concrete",      weight: 1.5, floor: "concrete" },
   { name: "Sidestone Work",               weight: 2,   floor: null },
   { name: "Plinth Beam Reinforcement",    weight: 1.5, floor: null },
   { name: "Plinth Beam Centering",        weight: 3,   floor: null },
@@ -726,9 +726,9 @@ const UNDERGROUND_ITEMS = [
 const FLOOR_ITEMS = [
   { name: "Column Reinforcement",       weight: 1,    floor: null },
   { name: "Column Centering",           weight: 1,    floor: null },
-  { name: "Column Concrete",            weight: 1.5,  floor: null },
+  { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
-  { name: "Lintel Concrete",            weight: 3,    floor: null },
+  { name: "Lintel Concrete",            weight: 3,    floor: "concrete" },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
   { name: "Slab Centering",             weight: 4,    floor: null },
   { name: "Slab Reinforcement",         weight: 1,    floor: null },
@@ -745,79 +745,63 @@ const DEFAULT_EXTRAS = [
   { name: "Passage work (PCC + finish)", rate: "Rs. 120 / sqft" },
 ];
 
-// Live state — built from defaults on first render
-let rows = [];
-
 /* =========================================================
-   BUILDERS
+   SECTIONS — each section has a fixed budget share of the total
+   project cost. Items inside a section get max(min, weight-share)
+   via water-fill allocation.
 ========================================================= */
-function buildRows() {
-  const N = clampFloors(num("totalFloors", 2));
-  const out = [];
+function buildSections(N) {
+  const sections = [];
 
-  // 1. Advance (15%)
-  out.push({ phase: "Foundation", name: "Advance", pct: BUDGET.advance, floor: null, active: true });
+  // S1: Advance (15%) — single locked item
+  sections.push({
+    phase: "Foundation",
+    budget: BUDGET.advance,
+    items: [{ name: "Advance", weight: 1, floor: "advance" }],
+  });
 
-  // 2. Foundation post-advance (20%, weight-distributed)
-  const undergroundSum = UNDERGROUND_ITEMS.reduce((a, b) => a + b.weight, 0);
-  for (const item of UNDERGROUND_ITEMS) {
-    out.push({
-      phase: "Foundation",
-      name: item.name,
-      pct: (item.weight / undergroundSum) * BUDGET.foundation,
-      floor: item.floor,
-      active: true,
+  // S2: Foundation post-advance (20%)
+  sections.push({
+    phase: "Foundation",
+    budget: BUDGET.foundation,
+    items: UNDERGROUND_ITEMS.map(i => ({ ...i })),
+  });
+
+  // S3..S(2+N): Each floor (40/N % each)
+  for (let fi = 0; fi < N; fi++) {
+    sections.push({
+      phase: FLOOR_NAMES[fi],
+      budget: BUDGET.floors / N,
+      items: FLOOR_ITEMS.map(i => ({ ...i })),
     });
   }
 
-  // 3. Per-floor structural (60%/N per floor, weight-distributed)
-  const floorSum = FLOOR_ITEMS.reduce((a, b) => a + b.weight, 0);
-  const perFloorBudget = BUDGET.floors / N;
-  for (let fi = 0; fi < 5; fi++) {
-    const active = (fi + 1) <= N;
-    for (const item of FLOOR_ITEMS) {
-      out.push({
-        phase: FLOOR_NAMES[fi],
-        name: item.name,
-        pct: (item.weight / floorSum) * perFloorBudget,
-        floor: item.floor,
-        active,
-      });
-    }
-  }
-
-  // 4. Inside plastering per floor (10%/N each)
-  const insidePerFloor = BUDGET.insidePlaster / N;
-  for (let fi = 0; fi < 5; fi++) {
-    const active = (fi + 1) <= N;
-    out.push({
-      phase: "Plastering",
-      name: `Inside Plastering — ${FLOOR_NAMES[fi]}`,
-      pct: insidePerFloor,
-      floor: "plaster",
-      active,
-    });
-  }
-
-  // 5. Outside plastering (5%, single line)
-  out.push({
+  // S(3+N): Inside plastering — N items in one section (10%)
+  sections.push({
     phase: "Plastering",
-    name: "Outside Plastering (all floors)",
-    pct: BUDGET.outsidePlaster,
-    floor: "outside_plaster",
-    active: true,
+    budget: BUDGET.insidePlaster,
+    items: Array.from({ length: N }, (_, fi) => ({
+      name: `Inside Plastering — ${FLOOR_NAMES[fi]}`,
+      weight: 1,
+      floor: "plaster",
+    })),
   });
 
-  // 6. Terrace — parapet wall (1%); final installment fills the remaining ~4%
-  out.push({
+  // S(4+N): Outside plastering (5%)
+  sections.push({
+    phase: "Plastering",
+    budget: BUDGET.outsidePlaster,
+    items: [{ name: "Outside Plastering (all floors)", weight: 1, floor: "outside_plaster" }],
+  });
+
+  // S(5+N): Parapet (5%)
+  sections.push({
     phase: "Terrace / Finishing",
-    name: "Parapet Wall",
-    pct: BUDGET.parapet,
-    floor: null,
-    active: true,
+    budget: BUDGET.parapet,
+    items: [{ name: "Parapet Wall", weight: 1, floor: null }],
   });
 
-  return out;
+  return sections;
 }
 
 /* =========================================================
@@ -840,45 +824,188 @@ function getInputs() {
   };
 }
 
+const ADVANCE_MIN  = 50000;  // floor on the Advance line item
+const ADVANCE_MAX  = 100000; // ceiling on the Advance line item (1 lakh)
+const CONCRETE_MIN = 20000;  // floor on every concrete pour (mixing fee)
+
+// Size-based cap on the final installment.
+// > 20L → max 1.2L · > 10L → max 80k · > 8L → max 60k · else no cap.
+function finalCap(totalCost) {
+  if (totalCost > 2000000) return 120000;
+  if (totalCost > 1000000) return 80000;
+  if (totalCost > 800000)  return 60000;
+  return Infinity;
+}
+
+// Per-row upper bound (currently only Advance has one)
+function ceilFor(row) {
+  return row.floor === "advance" ? ADVANCE_MAX : Infinity;
+}
+
 function floorValue(row, inp) {
   switch (row.floor) {
-    case "footing":         return inp.footingType === "Full-Mat" ? inp.matFootingMin : inp.plinthMin;
-    case "plinth":          return inp.plinthMin;
-    case "slab":            return inp.slabMin;
+    case "advance":         return ADVANCE_MIN;
+    case "concrete":        return CONCRETE_MIN;
+    case "footing":         return Math.max(CONCRETE_MIN, inp.footingType === "Full-Mat" ? inp.matFootingMin : inp.plinthMin);
+    case "plinth":          return Math.max(CONCRETE_MIN, inp.plinthMin);
+    case "slab":            return Math.max(CONCRETE_MIN, inp.slabMin);
     case "plaster":         return inp.plasterPerFloor;
-    case "outside_plaster": return inp.plasterPerFloor * inp.totalFloors;
+    case "outside_plaster": return 0; // derived: half of inside plastering total
     default:                return 0;
   }
 }
 
+// Water-fill allocation: each item gets at least its minimum,
+// extra budget is split among non-min-bound items proportionally to weight.
+function allocateSection(items, sectionBudget, inp) {
+  const alloc = new Map();
+  for (const it of items) alloc.set(it, 0);
+  const locked = new Set();
+
+  for (let iter = 0; iter < 20; iter++) {
+    const unlocked = items.filter(it => !locked.has(it));
+    if (unlocked.length === 0) break;
+
+    let lockedSum = 0;
+    for (const it of locked) lockedSum += alloc.get(it);
+    const freeBudget = Math.max(0, sectionBudget - lockedSum);
+
+    const totalWeight = unlocked.reduce((s, it) => s + (it.weight || 0), 0);
+    if (totalWeight === 0) {
+      // All remaining items have zero weight; give them their minimum (or 0)
+      for (const it of unlocked) alloc.set(it, floorValue(it, inp));
+      break;
+    }
+
+    let newlyLocked = false;
+    for (const it of unlocked) {
+      const min = floorValue(it, inp);
+      const share = (it.weight / totalWeight) * freeBudget;
+      if (min > share) {
+        alloc.set(it, min);
+        locked.add(it);
+        newlyLocked = true;
+      }
+    }
+
+    if (!newlyLocked) {
+      for (const it of unlocked) {
+        alloc.set(it, (it.weight / totalWeight) * freeBudget);
+      }
+      break;
+    }
+  }
+
+  return alloc;
+}
+
 function computePlan() {
   const inp = getInputs();
-  const totalArea = inp.buaPerFloor * inp.totalFloors;
+  const N = inp.totalFloors;
+  const totalArea = inp.buaPerFloor * N;
   const totalCost = totalArea * inp.ratePer100 / 100;
 
+  const sections = buildSections(N);
+  const computed = [];
+
+  // Pass 1: water-fill each section, round each item
+  for (const section of sections) {
+    const budgetAmt = section.budget * totalCost;
+    const alloc = allocateSection(section.items, budgetAmt, inp);
+
+    for (const item of section.items) {
+      const raw = alloc.get(item) || 0;
+      computed.push({
+        phase: section.phase,
+        name: item.name,
+        floor: item.floor,
+        amount: mround(raw, inp.roundTo),
+        floorAmt: floorValue(item, inp),
+        active: true,
+      });
+    }
+  }
+
+  // Pass 1.5: cap Advance at ADVANCE_MAX (any excess flows into the final installment)
+  const advRow = computed.find(r => r.floor === "advance");
+  if (advRow && advRow.amount > ADVANCE_MAX) {
+    advRow.amount = ADVANCE_MAX;
+  }
+
+  // Pass 2: override outside plastering = half of inside plastering total
+  const insideRows = computed.filter(r => r.floor === "plaster");
+  const outsideRow = computed.find(r => r.floor === "outside_plaster");
+  if (outsideRow && insideRows.length > 0) {
+    const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+    outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+  }
+
+  // Pass 2.5: if final installment is below 5%, trim the highest line items
+  // in roundTo (5k) increments until final hits target. Per-item floors are
+  // honoured (advance 50k, concrete 20k, slab/footing/plinth mins, plaster min).
+  // Outside Plastering is skipped — it's derived from inside.
+  const targetFinal = mround(0.05 * totalCost, inp.roundTo);
+  for (let safety = 0; safety < 500; safety++) {
+    const currentSum = computed.reduce((s, r) => s + r.amount, 0);
+    const currentFinal = totalCost - currentSum;
+    if (currentFinal >= targetFinal) break;
+
+    const cuttable = computed
+      .filter(r => r.floor !== "outside_plaster")
+      .filter(r => r.amount - floorValue(r, inp) >= inp.roundTo)
+      .sort((a, b) => b.amount - a.amount);
+    if (cuttable.length === 0) break;
+
+    cuttable[0].amount -= inp.roundTo;
+
+    // Re-derive outside in case a cut changed an inside-plaster row
+    // (cuts only target non-outside rows, but inside rows can be cut → outside shifts)
+    if (outsideRow && insideRows.length > 0) {
+      const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+    }
+  }
+
+  // Pass 2.6: if final exceeds the size-based cap, bump the lowest items
+  // (excluding outside, which is derived) in roundTo steps until final ≤ cap.
+  // Per-item ceilings are honoured (Advance ≤ 1L).
+  const fcap = finalCap(totalCost);
+  for (let safety = 0; safety < 500; safety++) {
+    const currentSum = computed.reduce((s, r) => s + r.amount, 0);
+    const currentFinal = totalCost - currentSum;
+    if (currentFinal <= fcap) break;
+
+    const bumpable = computed
+      .filter(r => r.floor !== "outside_plaster")
+      .filter(r => r.amount + inp.roundTo <= ceilFor(r))
+      .sort((a, b) => a.amount - b.amount);
+    if (bumpable.length === 0) break;
+
+    bumpable[0].amount += inp.roundTo;
+
+    if (outsideRow && insideRows.length > 0) {
+      const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+    }
+  }
+
+  // Pass 3: derive pct, cumulative, pending
   let cumulative = 0;
   let sumPct = 0;
-
-  const computed = rows.map(row => {
-    if (!row.active) {
-      return { ...row, amount: 0, floorAmt: 0, pending: null };
-    }
-    const fl = floorValue(row, inp);
-    const baseAmt = row.pct * totalCost;
-    const rawAmt = Math.max(baseAmt, fl);
-    const rounded = mround(rawAmt, inp.roundTo);
-    cumulative += rounded;
+  for (const row of computed) {
+    row.pct = totalCost > 0 ? row.amount / totalCost : 0;
+    cumulative += row.amount;
     sumPct += row.pct;
-    return { ...row, amount: rounded, floorAmt: fl, pending: Math.max(0, totalCost - cumulative) };
-  });
+    row.pending = Math.max(0, totalCost - cumulative);
+  }
 
   const sumActive = cumulative;
   const finalInstallment = Math.max(0, totalCost - sumActive);
-  const grandTotal = sumActive + finalInstallment;
 
   return {
     inp, totalArea, totalCost, computed,
-    sumActive, finalInstallment, grandTotal,
+    sumActive, finalInstallment,
+    grandTotal: sumActive + finalInstallment,
     sumPct,
     finalPct: totalCost > 0 ? finalInstallment / totalCost : 0,
   };
@@ -956,14 +1083,15 @@ function renderAll() {
     let floorTag = "";
     if (row.floor === "footing" || row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "plaster" || row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "concrete") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "advance") floorTag = `<span class="min-pay-tag team">${fmtIN(ADVANCE_MIN)} – ${fmtIN(ADVANCE_MAX)}</span>`;
+    else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
       <td><span class="milestone-cell">${row.name}${floorTag}</span></td>
-      <td class="num">
-        <input class="pct-input" data-idx="${idx}" type="number" step="0.05" min="0" max="100" value="${(row.pct*100).toFixed(2)}">
-      </td>
+      <td class="num">${fmtPct(row.pct)}</td>
       <td class="num">${fmtRs(row.amount)}</td>
       <td class="num">${fmtRs(row.pending)}</td>
     `;
@@ -991,19 +1119,6 @@ function renderAll() {
   `;
   tbody.appendChild(totalRow);
 
-  // Wire pct inputs
-  tbody.querySelectorAll(".pct-input").forEach(inp => {
-    inp.addEventListener("input", e => {
-      const i = +e.target.dataset.idx;
-      let v = parseFloat(e.target.value);
-      if (isNaN(v)) v = 0;
-      rows[i].pct = v / 100;
-      renderAll();
-      // Restore focus to the same input after re-render
-      const newInp = document.querySelector(`.pct-input[data-idx="${i}"]`);
-      if (newInp) { newInp.focus(); newInp.setSelectionRange(newInp.value.length, newInp.value.length); }
-    });
-  });
 }
 
 function renderExtras() {
@@ -1319,7 +1434,6 @@ function resetAll() {
     const el = document.getElementById(id);
     if (el) el.value = v;
   }
-  rows = buildRows();
   renderAll();
 }
 
@@ -1331,11 +1445,7 @@ function init() {
   INPUT_IDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const onChange = () => {
-      // totalFloors changes budget allocation -> rebuild rows
-      if (id === "totalFloors") rows = buildRows();
-      renderAll();
-    };
+    const onChange = () => renderAll();
     el.addEventListener("input", onChange);
     el.addEventListener("change", onChange);
   });
@@ -1345,7 +1455,6 @@ function init() {
   const dlBtn = document.getElementById("downloadBtn");
   if (dlBtn) dlBtn.addEventListener("click", generatePDF);
 
-  rows = buildRows();
   renderExtras();
   renderAll();
 }
