@@ -1072,7 +1072,9 @@ function computePlan() {
       const centeringName = rebar.name.replace("Reinforcement", "Centering");
       const centering = rows.find(r => r.name === centeringName);
       if (centering) {
-        centering.amount = Math.max(MIN_PER_STEP, mround(rebar.amount / 2, inp.roundTo));
+        // Slab centering is 1:1 with slab reinforcement; all other centerings are ½ × rebar.
+        const ratio = rebar.name === "Slab Reinforcement" ? 1 : 0.5;
+        centering.amount = Math.max(MIN_PER_STEP, mround(rebar.amount * ratio, inp.roundTo));
       }
     }
   }
@@ -1245,7 +1247,7 @@ function renderAll() {
     else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
     else if (row.floor === "col_rebar") floorTag = `<span class="min-pay-tag team">fixed ${fmtIN(row.floorAmt)}</span>`;
     else if (row.floor === "slab_rebar") floorTag = `<span class="min-pay-tag slab">fixed ${fmtIN(row.floorAmt)}</span>`;
-    else if (row.floor === "centering") floorTag = `<span class="min-pay-tag team">½ × rebar</span>`;
+    else if (row.floor === "centering") floorTag = `<span class="min-pay-tag team">${row.name === "Slab Centering" ? "= rebar" : "½ × rebar"}</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
@@ -1588,23 +1590,62 @@ const DEFAULT_INPUTS = {
 };
 const INPUT_IDS = Object.keys(DEFAULT_INPUTS);
 
+// Persist input values in sessionStorage (per-tab) so a page reload preserves them.
+const STORAGE_KEY = "nagendra-payment-plan-v1";
+const PERSISTED_IDS = [...INPUT_IDS, "ownerName", "propertyAddress", "agreementDate"];
+
+function saveToStorage() {
+  try {
+    const data = {};
+    for (const id of PERSISTED_IDS) {
+      const el = document.getElementById(id);
+      if (el) data[id] = el.value;
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) { /* sessionStorage disabled or full — silently skip */ }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    for (const [id, v] of Object.entries(data)) {
+      const el = document.getElementById(id);
+      if (el && v != null && v !== "") el.value = v;
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
 function resetAll() {
   for (const [id, v] of Object.entries(DEFAULT_INPUTS)) {
     const el = document.getElementById(id);
     if (el) el.value = v;
   }
+  // Clear contract details + persisted storage so a fresh state really is fresh
+  for (const id of ["ownerName", "propertyAddress"]) {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  }
+  const dateEl = document.getElementById("agreementDate");
+  if (dateEl) dateEl.valueAsDate = new Date();
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
   renderAll();
 }
 
 function init() {
-  // Set default date to today
+  // Default date is today (overridden by storage if a previous value was saved)
   document.getElementById("agreementDate").valueAsDate = new Date();
 
-  // Wire all input changes -> recompute
-  INPUT_IDS.forEach(id => {
+  // Restore previously entered values before wiring listeners
+  loadFromStorage();
+
+  // Wire all input changes -> persist + recompute
+  PERSISTED_IDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const onChange = () => renderAll();
+    const onChange = () => { saveToStorage(); renderAll(); };
     el.addEventListener("input", onChange);
     el.addEventListener("change", onChange);
   });
@@ -1620,48 +1661,61 @@ function init() {
   renderAll();
 }
 
-// Hindi toggle: click to translate the page to Hindi (and back to English).
-// Also auto-translates on first load when the browser language is Hindi.
+// Hindi toggle: uses the googtrans cookie (which Google Translate reads on load)
+// then reloads. Reload is the only reliable way to switch translation on/off
+// because clearing a live translation via the inline select is flaky.
 function wireHindiToggle() {
   const btn = document.getElementById("hindiToggle");
   if (!btn) return;
-  let translated = false;
 
-  function setLanguage(code) {
-    // The Google Translate widget injects a <select.goog-te-combo>.
-    // We poll briefly because the widget loads async.
-    let tries = 0;
-    (function attempt() {
-      const sel = document.querySelector(".goog-te-combo");
-      if (sel) {
-        sel.value = code;
-        sel.dispatchEvent(new Event("change"));
-      } else if (tries++ < 30) {
-        setTimeout(attempt, 200);
-      }
-    })();
+  function isTranslated() {
+    return /googtrans=(\/[^/]+)?\/hi/.test(document.cookie);
+  }
+  function setCookie(value) {
+    const host = location.hostname;
+    const parts = host.split(".");
+    const rootDomain = parts.length > 1 ? "." + parts.slice(-2).join(".") : host;
+    // Set on path / and on the root domain so the widget sees it on next load.
+    document.cookie = `googtrans=${value};path=/`;
+    document.cookie = `googtrans=${value};path=/;domain=${host}`;
+    document.cookie = `googtrans=${value};path=/;domain=${rootDomain}`;
+  }
+  function clearCookie() {
+    const expired = "; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    const host = location.hostname;
+    const parts = host.split(".");
+    const rootDomain = parts.length > 1 ? "." + parts.slice(-2).join(".") : host;
+    document.cookie = "googtrans=" + expired;
+    document.cookie = `googtrans=${expired}; domain=${host}`;
+    document.cookie = `googtrans=${expired}; domain=${rootDomain}`;
   }
 
-  btn.addEventListener("click", () => {
-    translated = !translated;
-    if (translated) {
-      setLanguage("hi");
+  // Reflect current state in the button label
+  function refresh() {
+    if (isTranslated()) {
       btn.classList.add("active");
       btn.textContent = "English";
     } else {
-      setLanguage("");
       btn.classList.remove("active");
       btn.textContent = "हिंदी";
     }
+  }
+  refresh();
+
+  btn.addEventListener("click", () => {
+    if (isTranslated()) clearCookie();
+    else setCookie("/en/hi");
+    location.reload();
   });
 
-  // Auto-translate if visitor's browser prefers Hindi
-  const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
-  if (langs.some(l => l.startsWith("hi"))) {
-    translated = true;
-    setLanguage("hi");
-    btn.classList.add("active");
-    btn.textContent = "English";
+  // First-visit auto-translate when the browser prefers Hindi.
+  // Skip if the user has already toggled (cookie set, even to a non-hi value).
+  if (!/googtrans=/.test(document.cookie)) {
+    const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
+    if (langs.some(l => l.startsWith("hi"))) {
+      setCookie("/en/hi");
+      location.reload();
+    }
   }
 }
 window.addEventListener("DOMContentLoaded", init);
