@@ -1661,48 +1661,61 @@ function init() {
   renderAll();
 }
 
-// Hindi toggle: click to translate the page to Hindi (and back to English).
-// Also auto-translates on first load when the browser language is Hindi.
+// Hindi toggle: uses the googtrans cookie (which Google Translate reads on load)
+// then reloads. Reload is the only reliable way to switch translation on/off
+// because clearing a live translation via the inline select is flaky.
 function wireHindiToggle() {
   const btn = document.getElementById("hindiToggle");
   if (!btn) return;
-  let translated = false;
 
-  function setLanguage(code) {
-    // The Google Translate widget injects a <select.goog-te-combo>.
-    // We poll briefly because the widget loads async.
-    let tries = 0;
-    (function attempt() {
-      const sel = document.querySelector(".goog-te-combo");
-      if (sel) {
-        sel.value = code;
-        sel.dispatchEvent(new Event("change"));
-      } else if (tries++ < 30) {
-        setTimeout(attempt, 200);
-      }
-    })();
+  function isTranslated() {
+    return /googtrans=(\/[^/]+)?\/hi/.test(document.cookie);
+  }
+  function setCookie(value) {
+    const host = location.hostname;
+    const parts = host.split(".");
+    const rootDomain = parts.length > 1 ? "." + parts.slice(-2).join(".") : host;
+    // Set on path / and on the root domain so the widget sees it on next load.
+    document.cookie = `googtrans=${value};path=/`;
+    document.cookie = `googtrans=${value};path=/;domain=${host}`;
+    document.cookie = `googtrans=${value};path=/;domain=${rootDomain}`;
+  }
+  function clearCookie() {
+    const expired = "; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    const host = location.hostname;
+    const parts = host.split(".");
+    const rootDomain = parts.length > 1 ? "." + parts.slice(-2).join(".") : host;
+    document.cookie = "googtrans=" + expired;
+    document.cookie = `googtrans=${expired}; domain=${host}`;
+    document.cookie = `googtrans=${expired}; domain=${rootDomain}`;
   }
 
-  btn.addEventListener("click", () => {
-    translated = !translated;
-    if (translated) {
-      setLanguage("hi");
+  // Reflect current state in the button label
+  function refresh() {
+    if (isTranslated()) {
       btn.classList.add("active");
       btn.textContent = "English";
     } else {
-      setLanguage("");
       btn.classList.remove("active");
       btn.textContent = "हिंदी";
     }
+  }
+  refresh();
+
+  btn.addEventListener("click", () => {
+    if (isTranslated()) clearCookie();
+    else setCookie("/en/hi");
+    location.reload();
   });
 
-  // Auto-translate if visitor's browser prefers Hindi
-  const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
-  if (langs.some(l => l.startsWith("hi"))) {
-    translated = true;
-    setLanguage("hi");
-    btn.classList.add("active");
-    btn.textContent = "English";
+  // First-visit auto-translate when the browser prefers Hindi.
+  // Skip if the user has already toggled (cookie set, even to a non-hi value).
+  if (!/googtrans=/.test(document.cookie)) {
+    const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
+    if (langs.some(l => l.startsWith("hi"))) {
+      setCookie("/en/hi");
+      location.reload();
+    }
   }
 }
 window.addEventListener("DOMContentLoaded", init);
