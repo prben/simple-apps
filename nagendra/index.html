@@ -632,16 +632,9 @@ function googleTranslateElementInit() {
               <input type="number" id="plinthMin" value="30000">
             </div>
           </div>
-          <div class="row-2">
-            <div class="field">
-              <label>Mat Footing Min (Rs.)</label>
-              <input type="number" id="matFootingMin" value="50000">
-              <div class="help">Full-mat footing concrete</div>
-            </div>
-            <div class="field">
-              <label>Plastering / Floor (Rs.)</label>
-              <input type="number" id="plasterPerFloor" value="25000">
-            </div>
+          <div class="field">
+            <label>Plastering / Floor (Rs.)</label>
+            <input type="number" id="plasterPerFloor" value="25000">
           </div>
           <div class="help" style="margin-top: 4px;">All amounts rounded to the nearest Rs. 5,000.</div>
         </div>
@@ -861,7 +854,6 @@ function getInputs() {
     ratePer100:      num("ratePer100", 34000),
     footingType:     val("footingType", "Full-Mat"),
     plinthMin:       num("plinthMin", 30000),
-    matFootingMin:   num("matFootingMin", 50000),
     slabMin:         num("slabMin", 50000),
     plasterPerFloor: num("plasterPerFloor", 25000),
     roundTo:         ROUND_TO,
@@ -908,6 +900,25 @@ function slabRebarTier(inp) {
   return 30000;
 }
 
+// Footing concrete — fixed value tiered by per-floor BUA. Mat is more expensive
+// (covers the whole footprint) than Box (separate pads under each column).
+function matFootingTier(inp) {
+  const a = inp.buaPerFloor;
+  if (a <= 1500) return 50000;
+  if (a <= 2500) return 80000;
+  return 80000;
+}
+function boxFootingTier(inp) {
+  const a = inp.buaPerFloor;
+  if (a <= 1500) return 30000;
+  if (a <= 2500) return 50000;
+  return 50000;
+}
+function footingTier(inp) {
+  return inp.footingType === "Full-Mat" ? matFootingTier(inp) : boxFootingTier(inp);
+}
+}
+
 function floorValue(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
@@ -915,17 +926,11 @@ function floorValue(row, inp) {
   switch (row.floor) {
     case "advance":  m = scale(ADVANCE_MIN); break;
     case "concrete": m = scale(CONCRETE_MIN); break;
-    case "footing": {
-      // Mat: single mixer, fixed labour at matFootingMin.
-      // Box: separate pours under each column → multi-pour setup, fixed at FOOTING_MAX.
-      const baseMin = inp.footingType === "Full-Mat" ? inp.matFootingMin : FOOTING_MAX;
-      m = Math.max(scale(CONCRETE_MIN), scale(baseMin));
-      break;
-    }
+    case "footing":   m = Math.max(scale(CONCRETE_MIN), scale(footingTier(inp))); break;
     case "plinth":    m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin)); break;
     case "slab":      m = Math.max(scale(CONCRETE_MIN), scale(inp.slabMin)); break;
     case "plaster":   m = scale(inp.plasterPerFloor); break;
-    case "sidestone": m = Math.round(inp.buaPerFloor * SIDESTONE_RATIO * SIDESTONE_RATE * k); break;
+    case "sidestone": m = 0; break; // derived: 1:1 with Column Concrete
     case "lintel":    m = 0; break; // no specific min; universal MIN_PER_STEP applies
     case "col_rebar": m = scale(colRebarTier(inp)); break;  // locked
     case "slab_rebar":m = scale(slabRebarTier(inp)); break; // locked
@@ -953,7 +958,7 @@ function ceilFor(row, inp) {
   const scale = v => Math.round(v * k);
   switch (row.floor) {
     case "advance":   return scale(ADVANCE_MAX);
-    case "footing":   return Math.max(floorValue(row, inp), scale(FOOTING_MAX));
+    case "footing":   return floorValue(row, inp); // locked at type-tier value
     case "lintel":    return Math.max(floorValue(row, inp), lintelMax(inp));
     case "col_rebar": return floorValue(row, inp); // locked at tier
     case "slab_rebar":return floorValue(row, inp); // locked at tier
@@ -1009,12 +1014,13 @@ function computePlan() {
   const inp = getInputs();
   const N = inp.totalFloors;
   const totalArea = inp.buaPerFloor * N;
-  // Mat footing uses a single mixer → contractor discount on the grand total.
+  // Mat is the baseline (covers full footprint, more material/labour). Box uses
+  // small separate pads → cheaper. The Box saving discounts the grand total.
   const baseCost = totalArea * inp.ratePer100 / 100;
-  const matSaving = inp.footingType === "Full-Mat"
-    ? Math.round((FOOTING_MAX - inp.matFootingMin) * minScale(inp))
+  const boxSaving = inp.footingType === "Box"
+    ? Math.round((matFootingTier(inp) - boxFootingTier(inp)) * minScale(inp))
     : 0;
-  const totalCost = baseCost - matSaving;
+  const totalCost = baseCost - boxSaving;
 
   const sections = buildSections(N);
   const computed = [];
@@ -1044,22 +1050,6 @@ function computePlan() {
     if (row.amount > ceil) row.amount = ceil;
   }
 
-  // Pass 1.6: Mat footing line item is cheaper than Box would be. Route the
-  // actual line-item saving (= Box-equivalent cap minus Mat's amount) into
-  // the first slab concrete (Ground Floor) instead of the final installment.
-  if (inp.footingType === "Full-Mat") {
-    const footing = computed.find(r => r.floor === "footing");
-    if (footing) {
-      const k = minScale(inp);
-      const wouldBeBox = Math.round(FOOTING_MAX * k);
-      const saving = mround(Math.max(0, wouldBeBox - footing.amount), inp.roundTo);
-      if (saving > 0) {
-        const firstSlab = computed.find(r => r.floor === "slab" && r.phase === FLOOR_NAMES[0]);
-        if (firstSlab) firstSlab.amount += saving;
-      }
-    }
-  }
-
   // Pass 1.7: derive every Centering row as ½ × the matching Reinforcement row
   // in the same phase. Names pair by "X Reinforcement" → "X Centering".
   const phaseRows = new Map();
@@ -1077,6 +1067,13 @@ function computePlan() {
         centering.amount = Math.max(MIN_PER_STEP, mround(rebar.amount * ratio, inp.roundTo));
       }
     }
+  }
+
+  // Pass 1.8: Sidestone Work = 1:1 with (Ground Floor) Column Concrete.
+  const colConcGF = computed.find(r => r.name === "Column Concrete" && r.phase === FLOOR_NAMES[0]);
+  const sidestoneRow = computed.find(r => r.floor === "sidestone");
+  if (colConcGF && sidestoneRow) {
+    sidestoneRow.amount = Math.max(MIN_PER_STEP, mround(colConcGF.amount, inp.roundTo));
   }
 
   // Pass 2: override outside plastering = half of inside plastering total
@@ -1098,7 +1095,7 @@ function computePlan() {
     if (currentFinal >= targetFinal) break;
 
     const cuttable = computed
-      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering")
+      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering" && r.floor !== "sidestone")
       .filter(r => r.amount - floorValue(r, inp) >= inp.roundTo)
       .sort((a, b) => b.amount - a.amount);
     if (cuttable.length === 0) break;
@@ -1123,7 +1120,7 @@ function computePlan() {
     if (currentFinal <= fcap) break;
 
     const bumpable = computed
-      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering")
+      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering" && r.floor !== "sidestone")
       .filter(r => r.amount + inp.roundTo <= ceilFor(r, inp))
       .sort((a, b) => a.amount - b.amount);
     if (bumpable.length === 0) break;
@@ -1237,11 +1234,12 @@ function renderAll() {
     sno++;
     const tr = document.createElement("tr");
     let floorTag = "";
-    if (row.floor === "footing" || row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
+    if (row.floor === "footing") floorTag = `<span class="min-pay-tag team">fixed ${fmtIN(row.floorAmt)}</span>`;
+    else if (row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "concrete") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "advance") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} – ${fmtIN(ceilFor(row, plan.inp))}</span>`;
-    else if (row.floor === "sidestone") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "sidestone") floorTag = `<span class="min-pay-tag team">= col concrete</span>`;
     else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
     else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
@@ -1584,7 +1582,6 @@ const DEFAULT_INPUTS = {
   ratePer100: 34000,
   footingType: "Full-Mat",
   plinthMin: 30000,
-  matFootingMin: 50000,
   slabMin: 50000,
   plasterPerFloor: 25000,
 };
