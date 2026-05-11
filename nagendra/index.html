@@ -1072,7 +1072,9 @@ function computePlan() {
       const centeringName = rebar.name.replace("Reinforcement", "Centering");
       const centering = rows.find(r => r.name === centeringName);
       if (centering) {
-        centering.amount = Math.max(MIN_PER_STEP, mround(rebar.amount / 2, inp.roundTo));
+        // Slab centering is 1:1 with slab reinforcement; all other centerings are ½ × rebar.
+        const ratio = rebar.name === "Slab Reinforcement" ? 1 : 0.5;
+        centering.amount = Math.max(MIN_PER_STEP, mround(rebar.amount * ratio, inp.roundTo));
       }
     }
   }
@@ -1245,7 +1247,7 @@ function renderAll() {
     else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
     else if (row.floor === "col_rebar") floorTag = `<span class="min-pay-tag team">fixed ${fmtIN(row.floorAmt)}</span>`;
     else if (row.floor === "slab_rebar") floorTag = `<span class="min-pay-tag slab">fixed ${fmtIN(row.floorAmt)}</span>`;
-    else if (row.floor === "centering") floorTag = `<span class="min-pay-tag team">½ × rebar</span>`;
+    else if (row.floor === "centering") floorTag = `<span class="min-pay-tag team">${row.name === "Slab Centering" ? "= rebar" : "½ × rebar"}</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
