@@ -772,7 +772,7 @@ const FLOOR_ITEMS = [
   { name: "Column Centering",           weight: 1,    floor: null },
   { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
-  { name: "Lintel Concrete",            weight: 3,    floor: "concrete" },
+  { name: "Lintel Concrete",            weight: 3,    floor: "lintel" },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
   { name: "Slab Centering",             weight: 4,    floor: null },
   { name: "Slab Reinforcement",         weight: 1,    floor: null },
@@ -876,33 +876,48 @@ const TWO_MIXER_AREA  = 850;    // floor mat above this sqft needs 2 mixers
 const SIDESTONE_RATE  = 66;     // Rs. per running foot of stone work
 const SIDESTONE_RATIO = 0.134;  // running ft per sqft of building area
 const SMALL_BUILDUP   = 1000;   // total built-up below this → halve all mins/caps
+const MIN_PER_STEP    = 5000;   // every milestone line is at least Rs. 5,000
 
 // All mins/caps are halved when the total built-up area is small.
 function minScale(inp) {
   return (inp.buaPerFloor * inp.totalFloors) < SMALL_BUILDUP ? 0.5 : 1.0;
 }
 
+// Lintel concrete cap, tiered by per-floor built-up area.
+function lintelMax(inp) {
+  const a = inp.buaPerFloor;
+  if (a <= 900)  return 10000;
+  if (a <= 1000) return 20000;
+  if (a <= 3000) return 30000;
+  return Infinity;
+}
+
 function floorValue(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
+  let m;
   switch (row.floor) {
-    case "advance":  return scale(ADVANCE_MIN);
-    case "concrete": return scale(CONCRETE_MIN);
+    case "advance":  m = scale(ADVANCE_MIN); break;
+    case "concrete": m = scale(CONCRETE_MIN); break;
     case "footing": {
       if (inp.footingType === "Full-Mat") {
         const twoMixers = inp.buaPerFloor > TWO_MIXER_AREA;
         const baseMin = twoMixers ? FOOTING_MAX : inp.matFootingMin;
-        return Math.max(scale(CONCRETE_MIN), scale(baseMin));
+        m = Math.max(scale(CONCRETE_MIN), scale(baseMin));
+      } else {
+        m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
       }
-      return Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
+      break;
     }
-    case "plinth":    return Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
-    case "slab":      return Math.max(scale(CONCRETE_MIN), scale(inp.slabMin));
-    case "plaster":   return scale(inp.plasterPerFloor);
-    case "sidestone": return Math.round(inp.buaPerFloor * SIDESTONE_RATIO * SIDESTONE_RATE * k);
+    case "plinth":    m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin)); break;
+    case "slab":      m = Math.max(scale(CONCRETE_MIN), scale(inp.slabMin)); break;
+    case "plaster":   m = scale(inp.plasterPerFloor); break;
+    case "sidestone": m = Math.round(inp.buaPerFloor * SIDESTONE_RATIO * SIDESTONE_RATE * k); break;
+    case "lintel":    m = 0; break; // no specific min; universal MIN_PER_STEP applies
     case "outside_plaster": return 0; // derived: half of inside plastering total
-    default:          return 0;
+    default:          m = 0;
   }
+  return Math.max(MIN_PER_STEP, m);
 }
 
 // Size-based cap on the final installment.
@@ -915,13 +930,15 @@ function finalCap(totalCost) {
 }
 
 // Per-row upper bound. Advance ≤ 1L. Footing concrete ≤ 65k.
-// All caps are also halved for small projects via minScale.
+// Lintel concrete ≤ 10k/20k/30k tiered by per-floor area.
+// Advance/Footing caps are halved for small projects via minScale.
 function ceilFor(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
   switch (row.floor) {
     case "advance": return scale(ADVANCE_MAX);
     case "footing": return Math.max(floorValue(row, inp), scale(FOOTING_MAX));
+    case "lintel":  return Math.max(floorValue(row, inp), lintelMax(inp));
     default:        return Infinity;
   }
 }
@@ -1009,7 +1026,7 @@ function computePlan() {
   const outsideRow = computed.find(r => r.floor === "outside_plaster");
   if (outsideRow && insideRows.length > 0) {
     const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
-    outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+    outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
   }
 
   // Pass 2.5: if final installment is below 5%, trim the highest line items
@@ -1034,7 +1051,7 @@ function computePlan() {
     // (cuts only target non-outside rows, but inside rows can be cut → outside shifts)
     if (outsideRow && insideRows.length > 0) {
       const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
-      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+      outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
     }
   }
 
@@ -1057,7 +1074,7 @@ function computePlan() {
 
     if (outsideRow && insideRows.length > 0) {
       const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
-      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+      outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
     }
   }
 
@@ -1160,6 +1177,7 @@ function renderAll() {
     else if (row.floor === "sidestone") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
+    else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
