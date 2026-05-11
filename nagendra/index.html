@@ -607,6 +607,7 @@ function googleTranslateElementInit() {
                 <option value="Full-Mat">Full-Mat</option>
                 <option value="Box">Box</option>
               </select>
+              <div class="help">Mat: 1 mixer · Box: multi-pour (Rs. 65k)</div>
             </div>
           </div>
           <div class="field">
@@ -627,9 +628,8 @@ function googleTranslateElementInit() {
               <input type="number" id="slabMin" value="50000">
             </div>
             <div class="field">
-              <label>Plinth / Box Footing Min (Rs.)</label>
+              <label>Plinth Beam Min (Rs.)</label>
               <input type="number" id="plinthMin" value="30000">
-              <div class="help">Also box-type footing</div>
             </div>
           </div>
           <div class="row-2">
@@ -871,8 +871,7 @@ function getInputs() {
 const ADVANCE_MIN     = 50000;  // floor on the Advance line item
 const ADVANCE_MAX     = 100000; // ceiling on the Advance line item (1 lakh)
 const CONCRETE_MIN    = 20000;  // floor on every concrete pour (mixing fee)
-const FOOTING_MAX     = 65000;  // ceiling on Footing Concrete labour
-const TWO_MIXER_AREA  = 850;    // floor mat above this sqft needs 2 mixers
+const FOOTING_MAX     = 65000;  // ceiling on Footing Concrete labour; also Box-type fixed cost
 const SIDESTONE_RATE  = 66;     // Rs. per running foot of stone work
 const SIDESTONE_RATIO = 0.134;  // running ft per sqft of building area
 const SMALL_BUILDUP   = 1000;   // total built-up below this → halve all mins/caps
@@ -900,13 +899,10 @@ function floorValue(row, inp) {
     case "advance":  m = scale(ADVANCE_MIN); break;
     case "concrete": m = scale(CONCRETE_MIN); break;
     case "footing": {
-      if (inp.footingType === "Full-Mat") {
-        const twoMixers = inp.buaPerFloor > TWO_MIXER_AREA;
-        const baseMin = twoMixers ? FOOTING_MAX : inp.matFootingMin;
-        m = Math.max(scale(CONCRETE_MIN), scale(baseMin));
-      } else {
-        m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin));
-      }
+      // Mat: single mixer, fixed labour at matFootingMin.
+      // Box: separate pours under each column → multi-pour setup, fixed at FOOTING_MAX.
+      const baseMin = inp.footingType === "Full-Mat" ? inp.matFootingMin : FOOTING_MAX;
+      m = Math.max(scale(CONCRETE_MIN), scale(baseMin));
       break;
     }
     case "plinth":    m = Math.max(scale(CONCRETE_MIN), scale(inp.plinthMin)); break;
