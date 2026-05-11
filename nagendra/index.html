@@ -830,7 +830,7 @@ function floorValue(row, inp) {
     case "plinth":          return inp.plinthMin;
     case "slab":            return inp.slabMin;
     case "plaster":         return inp.plasterPerFloor;
-    case "outside_plaster": return inp.plasterPerFloor * inp.totalFloors;
+    case "outside_plaster": return 0; // derived: half of inside plastering total
     default:                return 0;
   }
 }
@@ -887,32 +887,45 @@ function computePlan() {
 
   const sections = buildSections(N);
   const computed = [];
-  let cumulative = 0;
 
+  // Pass 1: water-fill each section, round each item
   for (const section of sections) {
     const budgetAmt = section.budget * totalCost;
     const alloc = allocateSection(section.items, budgetAmt, inp);
 
     for (const item of section.items) {
       const raw = alloc.get(item) || 0;
-      const amount = mround(raw, inp.roundTo);
-      cumulative += amount;
       computed.push({
         phase: section.phase,
         name: item.name,
         floor: item.floor,
-        amount,
+        amount: mround(raw, inp.roundTo),
         floorAmt: floorValue(item, inp),
-        pct: totalCost > 0 ? amount / totalCost : 0,
-        pending: Math.max(0, totalCost - cumulative),
         active: true,
       });
     }
   }
 
+  // Pass 2: override outside plastering = half of inside plastering total
+  const insideRows = computed.filter(r => r.floor === "plaster");
+  const outsideRow = computed.find(r => r.floor === "outside_plaster");
+  if (outsideRow && insideRows.length > 0) {
+    const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+    outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+  }
+
+  // Pass 3: derive pct, cumulative, pending
+  let cumulative = 0;
+  let sumPct = 0;
+  for (const row of computed) {
+    row.pct = totalCost > 0 ? row.amount / totalCost : 0;
+    cumulative += row.amount;
+    sumPct += row.pct;
+    row.pending = Math.max(0, totalCost - cumulative);
+  }
+
   const sumActive = cumulative;
   const finalInstallment = Math.max(0, totalCost - sumActive);
-  const sumPct = computed.reduce((s, r) => s + r.pct, 0);
 
   return {
     inp, totalArea, totalCost, computed,
@@ -995,7 +1008,8 @@ function renderAll() {
     let floorTag = "";
     if (row.floor === "footing" || row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "plaster" || row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
