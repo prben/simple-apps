@@ -1588,23 +1588,62 @@ const DEFAULT_INPUTS = {
 };
 const INPUT_IDS = Object.keys(DEFAULT_INPUTS);
 
+// Persist input values in sessionStorage (per-tab) so a page reload preserves them.
+const STORAGE_KEY = "nagendra-payment-plan-v1";
+const PERSISTED_IDS = [...INPUT_IDS, "ownerName", "propertyAddress", "agreementDate"];
+
+function saveToStorage() {
+  try {
+    const data = {};
+    for (const id of PERSISTED_IDS) {
+      const el = document.getElementById(id);
+      if (el) data[id] = el.value;
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) { /* sessionStorage disabled or full — silently skip */ }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    for (const [id, v] of Object.entries(data)) {
+      const el = document.getElementById(id);
+      if (el && v != null && v !== "") el.value = v;
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
 function resetAll() {
   for (const [id, v] of Object.entries(DEFAULT_INPUTS)) {
     const el = document.getElementById(id);
     if (el) el.value = v;
   }
+  // Clear contract details + persisted storage so a fresh state really is fresh
+  for (const id of ["ownerName", "propertyAddress"]) {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  }
+  const dateEl = document.getElementById("agreementDate");
+  if (dateEl) dateEl.valueAsDate = new Date();
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
   renderAll();
 }
 
 function init() {
-  // Set default date to today
+  // Default date is today (overridden by storage if a previous value was saved)
   document.getElementById("agreementDate").valueAsDate = new Date();
 
-  // Wire all input changes -> recompute
-  INPUT_IDS.forEach(id => {
+  // Restore previously entered values before wiring listeners
+  loadFromStorage();
+
+  // Wire all input changes -> persist + recompute
+  PERSISTED_IDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const onChange = () => renderAll();
+    const onChange = () => { saveToStorage(); renderAll(); };
     el.addEventListener("input", onChange);
     el.addEventListener("change", onChange);
   });
