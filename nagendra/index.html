@@ -419,13 +419,84 @@
   }
 
   /* Responsive */
+  @media (max-width: 980px) {
+    body { padding: 24px 16px 60px; }
+    header {
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 18px;
+      margin-bottom: 24px;
+    }
+    .builder-tag { text-align: left; }
+    .grid { gap: 20px; }
+  }
+
   @media (max-width: 640px) {
+    html, body { font-size: 14.5px; }
     body { padding: 16px 12px 60px; }
+    .container { padding: 0; }
+
+    .panel-head { padding: 10px 14px; }
+    .panel-head h2 { font-size: 15px; }
+    .panel-head .meta { font-size: 9px; letter-spacing: 0.1em; }
     .panel-body { padding: 14px 12px; }
-    .summary-grid .value { font-size: 18px; }
+
+    /* Prevent iOS auto-zoom on focus (needs >=16px) */
+    .field input, .field select, .field textarea,
+    .extra-item input {
+      font-size: 16px;
+      padding: 10px 11px;
+    }
+    .field .help { font-size: 11px; }
+    .row-2 { gap: 8px; }
+
+    .summary-grid { grid-template-columns: 1fr; }
+    .summary-grid .cell {
+      border-right: 0;
+      border-bottom: 1px solid var(--rule-soft);
+    }
+    .summary-grid .cell:last-child { border-bottom: 0; }
+    .summary-grid .value { font-size: 20px; }
+
     .plan-table { font-size: 12.5px; }
     .plan-table tbody td, .plan-table thead th { padding: 6px 8px; }
-    .pct-input { width: 54px; font-size: 12px; }
+    .plan-table thead th { font-size: 9.5px; letter-spacing: 0.08em; }
+    .pct-input {
+      width: 56px;
+      font-size: 14px;
+      padding: 4px 4px;
+      border-color: var(--rule);
+      background: var(--paper);
+    }
+    .min-pay-tag { font-size: 9px; padding: 1px 5px; margin-left: 4px; }
+    .milestone-cell { flex-wrap: wrap; gap: 2px 6px; }
+
+    .actions {
+      padding: 16px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 14px;
+    }
+    .actions > div:last-child {
+      width: 100%;
+      flex-direction: column;
+    }
+    .btn { width: 100%; padding: 14px 22px; }
+
+    .extra-item { grid-template-columns: 1fr; gap: 4px; }
+    .extra-item input[type="text"]:nth-of-type(2) { text-align: left; }
+
+    .page-footer { margin-top: 32px; font-size: 12px; }
+  }
+
+  @media (max-width: 420px) {
+    .brand h1 { font-size: 28px; }
+    .plan-table { font-size: 12px; }
+    .plan-table tbody td, .plan-table thead th { padding: 5px 6px; }
+    /* Hide the "Pending" column on very narrow screens */
+    .plan-table thead th:nth-child(5),
+    .plan-table tbody td:nth-child(5) { display: none; }
+    .pct-input { width: 50px; font-size: 13px; }
   }
 </style>
 </head>
@@ -508,23 +579,29 @@
         <div class="panel-body">
           <div class="row-2">
             <div class="field">
-              <label>Concrete Team Fee (Rs.)</label>
-              <input type="number" id="teamFee" value="20000">
+              <label>Slab Concrete Min (Rs.)</label>
+              <input type="number" id="slabMin" value="50000">
             </div>
             <div class="field">
-              <label>Slab Pour Min (Rs.)</label>
-              <input type="number" id="slabMin" value="50000">
+              <label>Plinth / Box Footing Min (Rs.)</label>
+              <input type="number" id="plinthMin" value="30000">
+              <div class="help">Also box-type footing</div>
             </div>
           </div>
           <div class="row-2">
             <div class="field">
+              <label>Mat Footing Min (Rs.)</label>
+              <input type="number" id="matFootingMin" value="50000">
+              <div class="help">Full-mat footing concrete</div>
+            </div>
+            <div class="field">
               <label>Plastering / Floor (Rs.)</label>
               <input type="number" id="plasterPerFloor" value="25000">
             </div>
-            <div class="field">
-              <label>Round To Nearest (Rs.)</label>
-              <input type="number" id="roundTo" value="500">
-            </div>
+          </div>
+          <div class="field">
+            <label>Round To Nearest (Rs.)</label>
+            <input type="number" id="roundTo" value="500">
           </div>
         </div>
       </div>
@@ -561,7 +638,7 @@
             </div>
             <div class="cell">
               <div class="label">Sum of Active %s <span id="pctBadge"></span></div>
-              <div class="value" id="sumPct">—<span class="sub">target ~95%</span></div>
+              <div class="value" id="sumPct">—<span class="sub">target ~96%</span></div>
             </div>
             <div class="cell">
               <div class="label">Final Installment <span id="finalBadge"></span></div>
@@ -599,7 +676,7 @@
           Generates a clean, owner-friendly PDF agreement with the payment schedule, dates &amp; signature blocks. <strong>One sheet, ready to print.</strong>
         </div>
         <div style="display: flex; gap: 10px;">
-          <button class="btn secondary" id="resetBtn">Reset %s</button>
+          <button class="btn secondary" id="resetBtn">Reset All</button>
           <button class="btn" id="downloadBtn">Download PDF</button>
         </div>
       </div>
@@ -617,37 +694,45 @@
    STATE & CONFIG
 ========================================================= */
 
-// Milestone definitions (default %, floor type)
-// floor_type: null | "footing" | "plinth" | "slab" | "plaster" | "outside_plaster"
-const FOUNDATION = [
-  { name: "Advance",                    pct: 0.0700, floor: null },
-  { name: "PCC",                        pct: 0.0300, floor: null },
-  { name: "Footing Concrete",           pct: 0.0900, floor: "footing" },
-  { name: "Column Reinforcement",       pct: 0.0100, floor: null },
-  { name: "Column Centering",           pct: 0.0100, floor: null },
-  { name: "Column Concrete",            pct: 0.0150, floor: null },
-  { name: "Plinth Beam Reinforcement",  pct: 0.0150, floor: null },
-  { name: "Plinth Beam Centering",      pct: 0.0250, floor: null },
-  { name: "Plinth Beam Concrete",       pct: 0.0250, floor: "plinth" },
+// Budget allocation (% of total project cost)
+//   10% advance + 10% underground + 60% floors + 10% inside plaster
+//   + 5% outside plaster + 1% parapet + 4% final installment = 100%
+const BUDGET = {
+  advance:        0.10,
+  underground:    0.10,
+  floors:         0.60, // split equally across N floors
+  insidePlaster:  0.10, // split equally across N floors
+  outsidePlaster: 0.05,
+  parapet:        0.01,
+  // final installment = whatever's left (~4%)
+};
+
+// Underground (post-advance foundation) — weights distribute the 10% bucket
+const UNDERGROUND_ITEMS = [
+  { name: "PCC",                          weight: 3,    floor: null },
+  { name: "Footing Concrete",             weight: 9,    floor: "footing" },
+  { name: "Footing Column Reinforcement", weight: 1,    floor: null },
+  { name: "Footing Column Centering",     weight: 1,    floor: null },
+  { name: "Footing Column Concrete",      weight: 1.5,  floor: null },
+  { name: "Sidestone Work",               weight: 1.5,  floor: null },
+  { name: "Plinth Beam Reinforcement",    weight: 1.5,  floor: null },
+  { name: "Plinth Beam Centering",        weight: 2.5,  floor: null },
+  { name: "Plinth Beam Concrete",         weight: 2.5,  floor: "plinth" },
 ];
-const FLOOR_TEMPLATE = [
-  { name: "Column Reinforcement",       pct: 0.0150, floor: null },
-  { name: "Column Centering",           pct: 0.0150, floor: null },
-  { name: "Column Concrete",            pct: 0.0200, floor: null },
-  { name: "Lintel Level Block Work",    pct: 0.0300, floor: null },
-  { name: "Lintel Concrete",            pct: 0.0350, floor: null },
-  { name: "Slab Level Block Work",      pct: 0.0075, floor: null },
-  { name: "Slab Centering",             pct: 0.0350, floor: null },
-  { name: "Slab Reinforcement",         pct: 0.0200, floor: null },
-  { name: "Slab Concrete",              pct: 0.0700, floor: "slab" },
+
+// Per-floor structural — weights distribute the 60%/N bucket per floor
+const FLOOR_ITEMS = [
+  { name: "Column Reinforcement",       weight: 1.5,  floor: null },
+  { name: "Column Centering",           weight: 1.5,  floor: null },
+  { name: "Column Concrete",            weight: 2.0,  floor: null },
+  { name: "Lintel Level Block Work",    weight: 3.0,  floor: null },
+  { name: "Lintel Concrete",            weight: 3.5,  floor: null },
+  { name: "Slab Level Block Work",      weight: 0.75, floor: null },
+  { name: "Slab Centering",             weight: 3.5,  floor: null },
+  { name: "Slab Reinforcement",         weight: 2.0,  floor: null },
+  { name: "Slab Concrete",              weight: 7.0,  floor: "slab" },
 ];
-const PLASTERING_TEMPLATE = [
-  { name: "Inside Plastering",          pct: 0.0400, floor: "plaster" },
-];
-const TERRACE = [
-  { name: "Parapet Wall",               pct: 0.0100, floor: null },
-  { name: "Outside Plastering (all floors)", pct: 0.0800, floor: "outside_plaster" },
-];
+
 const FLOOR_NAMES = ["Ground Floor", "First Floor", "Second Floor", "Third Floor", "Fourth Floor"];
 
 // Default Extra Work items
@@ -665,35 +750,71 @@ let rows = [];
    BUILDERS
 ========================================================= */
 function buildRows() {
-  const totalFloors = clampFloors(num("totalFloors", 2));
+  const N = clampFloors(num("totalFloors", 2));
   const out = [];
 
-  // 1. Foundation
-  for (const m of FOUNDATION) {
-    out.push({ phase: "Foundation", name: m.name, pct: m.pct, floor: m.floor, active: true });
+  // 1. Advance (10%)
+  out.push({ phase: "Foundation", name: "Advance", pct: BUDGET.advance, floor: null, active: true });
+
+  // 2. Underground / Foundation post-advance (10%, weight-distributed)
+  const undergroundSum = UNDERGROUND_ITEMS.reduce((a, b) => a + b.weight, 0);
+  for (const item of UNDERGROUND_ITEMS) {
+    out.push({
+      phase: "Foundation",
+      name: item.name,
+      pct: (item.weight / undergroundSum) * BUDGET.underground,
+      floor: item.floor,
+      active: true,
+    });
   }
-  // 2. Per-floor structural
+
+  // 3. Per-floor structural (60%/N per floor, weight-distributed)
+  const floorSum = FLOOR_ITEMS.reduce((a, b) => a + b.weight, 0);
+  const perFloorBudget = BUDGET.floors / N;
   for (let fi = 0; fi < 5; fi++) {
-    const active = (fi + 1) <= totalFloors;
-    for (const m of FLOOR_TEMPLATE) {
-      out.push({ phase: FLOOR_NAMES[fi], name: m.name, pct: m.pct, floor: m.floor, active });
-    }
-  }
-  // 3. Plastering (per floor) — only inside
-  for (let fi = 0; fi < 5; fi++) {
-    const active = (fi + 1) <= totalFloors;
-    for (const m of PLASTERING_TEMPLATE) {
+    const active = (fi + 1) <= N;
+    for (const item of FLOOR_ITEMS) {
       out.push({
-        phase: "Plastering",
-        name: `${m.name} — ${FLOOR_NAMES[fi]}`,
-        pct: m.pct, floor: m.floor, active
+        phase: FLOOR_NAMES[fi],
+        name: item.name,
+        pct: (item.weight / floorSum) * perFloorBudget,
+        floor: item.floor,
+        active,
       });
     }
   }
-  // 4. Terrace / Finishing
-  for (const m of TERRACE) {
-    out.push({ phase: "Terrace / Finishing", name: m.name, pct: m.pct, floor: m.floor, active: true });
+
+  // 4. Inside plastering per floor (10%/N each)
+  const insidePerFloor = BUDGET.insidePlaster / N;
+  for (let fi = 0; fi < 5; fi++) {
+    const active = (fi + 1) <= N;
+    out.push({
+      phase: "Plastering",
+      name: `Inside Plastering — ${FLOOR_NAMES[fi]}`,
+      pct: insidePerFloor,
+      floor: "plaster",
+      active,
+    });
   }
+
+  // 5. Outside plastering (5%, single line)
+  out.push({
+    phase: "Plastering",
+    name: "Outside Plastering (all floors)",
+    pct: BUDGET.outsidePlaster,
+    floor: "outside_plaster",
+    active: true,
+  });
+
+  // 6. Terrace — parapet wall (1%); final installment fills the remaining ~4%
+  out.push({
+    phase: "Terrace / Finishing",
+    name: "Parapet Wall",
+    pct: BUDGET.parapet,
+    floor: null,
+    active: true,
+  });
+
   return out;
 }
 
@@ -707,7 +828,8 @@ function getInputs() {
     totalFloors:     clampFloors(num("totalFloors", 2)),
     ratePer100:      num("ratePer100", 34000),
     footingType:     val("footingType", "Full-Mat"),
-    teamFee:         num("teamFee", 20000),
+    plinthMin:       num("plinthMin", 30000),
+    matFootingMin:   num("matFootingMin", 50000),
     slabMin:         num("slabMin", 50000),
     plasterPerFloor: num("plasterPerFloor", 25000),
     roundTo:         Math.max(1, num("roundTo", 500)),
@@ -716,8 +838,8 @@ function getInputs() {
 
 function floorValue(row, inp) {
   switch (row.floor) {
-    case "footing":         return inp.footingType === "Full-Mat" ? 2 * inp.teamFee : inp.teamFee;
-    case "plinth":          return inp.teamFee;
+    case "footing":         return inp.footingType === "Full-Mat" ? inp.matFootingMin : inp.plinthMin;
+    case "plinth":          return inp.plinthMin;
     case "slab":            return inp.slabMin;
     case "plaster":         return inp.plasterPerFloor;
     case "outside_plaster": return inp.plasterPerFloor * inp.totalFloors;
@@ -781,11 +903,11 @@ function renderAll() {
   document.getElementById("sumCost").textContent = fmtRs(plan.totalCost);
 
   const sumPctEl = document.getElementById("sumPct");
-  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">target ~95%</span>`;
-  // Color the value based on sumPct distance from 95%
+  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">target ~96%</span>`;
+  // Color the value based on sumPct distance from target
   sumPctEl.classList.remove("warn", "good");
   const pctBadge = document.getElementById("pctBadge");
-  if (plan.sumPct >= 0.93 && plan.sumPct <= 0.97) {
+  if (plan.sumPct >= 0.94 && plan.sumPct <= 0.98) {
     sumPctEl.classList.add("good");
     pctBadge.innerHTML = '<span class="badge good">on target</span>';
   } else {
@@ -1175,30 +1297,50 @@ function todayISO() {
 /* =========================================================
    INIT
 ========================================================= */
+const DEFAULT_INPUTS = {
+  plotArea: 1200,
+  buaPerFloor: 1200,
+  totalFloors: 2,
+  ratePer100: 34000,
+  footingType: "Full-Mat",
+  plinthMin: 30000,
+  matFootingMin: 50000,
+  slabMin: 50000,
+  plasterPerFloor: 25000,
+  roundTo: 500,
+};
+const INPUT_IDS = Object.keys(DEFAULT_INPUTS);
+
+function resetAll() {
+  for (const [id, v] of Object.entries(DEFAULT_INPUTS)) {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  }
+  rows = buildRows();
+  renderAll();
+}
+
 function init() {
   // Set default date to today
   document.getElementById("agreementDate").valueAsDate = new Date();
 
-  // Wire all input changes -> recompute, but preserve user-edited rows[] when structural inputs change
-  ["plotArea","buaPerFloor","totalFloors","ratePer100","footingType",
-   "teamFee","slabMin","plasterPerFloor","roundTo"].forEach(id => {
+  // Wire all input changes -> recompute
+  INPUT_IDS.forEach(id => {
     const el = document.getElementById(id);
-    el.addEventListener("input", () => {
-      // Total floors change -> rebuild structure (preserve common %s by keeping defaults)
+    if (!el) return;
+    const onChange = () => {
+      // totalFloors changes budget allocation -> rebuild rows
       if (id === "totalFloors") rows = buildRows();
       renderAll();
-    });
-    el.addEventListener("change", () => {
-      if (id === "totalFloors") rows = buildRows();
-      renderAll();
-    });
+    };
+    el.addEventListener("input", onChange);
+    el.addEventListener("change", onChange);
   });
 
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    rows = buildRows();
-    renderAll();
-  });
-  document.getElementById("downloadBtn").addEventListener("click", generatePDF);
+  const resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) resetBtn.addEventListener("click", resetAll);
+  const dlBtn = document.getElementById("downloadBtn");
+  if (dlBtn) dlBtn.addEventListener("click", generatePDF);
 
   rows = buildRows();
   renderExtras();
