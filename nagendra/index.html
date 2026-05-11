@@ -828,6 +828,20 @@ const ADVANCE_MIN  = 50000;  // floor on the Advance line item
 const ADVANCE_MAX  = 100000; // ceiling on the Advance line item (1 lakh)
 const CONCRETE_MIN = 20000;  // floor on every concrete pour (mixing fee)
 
+// Size-based cap on the final installment.
+// > 20L → max 1.2L · > 10L → max 80k · > 8L → max 60k · else no cap.
+function finalCap(totalCost) {
+  if (totalCost > 2000000) return 120000;
+  if (totalCost > 1000000) return 80000;
+  if (totalCost > 800000)  return 60000;
+  return Infinity;
+}
+
+// Per-row upper bound (currently only Advance has one)
+function ceilFor(row) {
+  return row.floor === "advance" ? ADVANCE_MAX : Infinity;
+}
+
 function floorValue(row, inp) {
   switch (row.floor) {
     case "advance":         return ADVANCE_MIN;
@@ -946,6 +960,29 @@ function computePlan() {
 
     // Re-derive outside in case a cut changed an inside-plaster row
     // (cuts only target non-outside rows, but inside rows can be cut → outside shifts)
+    if (outsideRow && insideRows.length > 0) {
+      const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+      outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
+    }
+  }
+
+  // Pass 2.6: if final exceeds the size-based cap, bump the lowest items
+  // (excluding outside, which is derived) in roundTo steps until final ≤ cap.
+  // Per-item ceilings are honoured (Advance ≤ 1L).
+  const fcap = finalCap(totalCost);
+  for (let safety = 0; safety < 500; safety++) {
+    const currentSum = computed.reduce((s, r) => s + r.amount, 0);
+    const currentFinal = totalCost - currentSum;
+    if (currentFinal <= fcap) break;
+
+    const bumpable = computed
+      .filter(r => r.floor !== "outside_plaster")
+      .filter(r => r.amount + inp.roundTo <= ceilFor(r))
+      .sort((a, b) => a.amount - b.amount);
+    if (bumpable.length === 0) break;
+
+    bumpable[0].amount += inp.roundTo;
+
     if (outsideRow && insideRows.length > 0) {
       const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
       outsideRow.amount = mround(insideTotal / 2, inp.roundTo);
