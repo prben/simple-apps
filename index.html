@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Construction Payment Plan — Nagendra Kumar (Builder)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --ink:        #1a1814;
+    --ink-soft:   #4a4138;
+    --ink-muted:  #6f6553;
+    --paper:      #f4ede0;
+    --paper-2:    #ebe2d0;
+    --paper-3:    #e0d5be;
+    --rule:       #c8bba0;
+    --rule-soft:  #d8cdb3;
+    --accent:     #8b3a1f;
+    --accent-2:   #b8861b;
+    --good:       #4a6b3a;
+    --bad:        #a53f1d;
+    --shadow:     0 1px 0 rgba(26,24,20,0.04), 0 8px 24px -8px rgba(26,24,20,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(184, 134, 27, 0.06) 0%, transparent 35%),
+      radial-gradient(circle at 100% 100%, rgba(139, 58, 31, 0.04) 0%, transparent 40%);
+    min-height: 100vh;
+    padding: 32px 20px 80px;
+  }
+
+  .container { max-width: 1180px; margin: 0 auto; }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; flex-direction: column; gap: 4px; }
+  .brand .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .brand h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 700;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .brand h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .builder-tag {
+    text-align: right;
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-soft);
+  }
+  .builder-tag strong { font-style: normal; font-weight: 600; color: var(--ink); }
+
+  /* Layout */
+  .grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 32px;
+  }
+  @media (max-width: 980px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    box-shadow: var(--shadow);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .panel-head {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 16px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .panel-head h2 {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.01em;
+  }
+  .panel-head .meta {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--paper-3);
+  }
+  .panel-body { padding: 18px 16px; }
+
+  /* Form fields */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-weight: 500;
+    margin-bottom: 4px;
+    letter-spacing: 0.01em;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    padding: 9px 11px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 2px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #fbf6ea;
+  }
+  .field input[type="number"] {
+    font-family: "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .field .help {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    font-style: italic;
+  }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .section-divider {
+    margin: 18px 0 14px;
+    border: 0;
+    border-top: 1px dashed var(--rule);
+  }
+  .section-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 10px;
+  }
+
+  /* Summary box */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .summary-grid .cell {
+    padding: 12px 14px;
+    border-right: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .summary-grid .cell:nth-child(2n) { border-right: 0; }
+  .summary-grid .cell:nth-last-child(-n+2) { border-bottom: 0; }
+  .summary-grid .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-muted);
+    margin-bottom: 3px;
+  }
+  .summary-grid .value {
+    font-family: "Fraunces", serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .summary-grid .value.warn { color: var(--accent); }
+  .summary-grid .value.good { color: var(--good); }
+  .summary-grid .value .sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-muted);
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* Plan table */
+  .plan-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .plan-table thead th {
+    background: var(--paper-3);
+    color: var(--ink);
+    padding: 10px 12px;
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule);
+    position: sticky;
+    top: 0;
+  }
+  .plan-table thead th.num { text-align: right; }
+  .plan-table tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .plan-table tbody td.num { text-align: right; font-family: "IBM Plex Mono", monospace; }
+  .plan-table tbody tr.phase-head td {
+    background: var(--paper-3);
+    padding: 6px 12px;
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--rule);
+  }
+  .plan-table tbody tr.final-row td {
+    background: #f3e9d2;
+    font-weight: 600;
+    border-top: 1px solid var(--rule);
+  }
+  .plan-table tbody tr.total-row td {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 11px 12px;
+  }
+  .pct-input {
+    width: 64px;
+    background: transparent;
+    border: 1px solid transparent;
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--ink);
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pct-input:hover { border-color: var(--rule); background: var(--paper); }
+  .pct-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--paper);
+  }
+
+  .min-pay-tag {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    margin-left: 6px;
+  }
+  .min-pay-tag.team { background: #f4dab0; color: #6a4f10; }
+  .min-pay-tag.slab { background: #efc4a4; color: #6a2810; }
+  .min-pay-tag.plaster { background: #e5d1b3; color: #5c4015; }
+
+  .milestone-cell { display: flex; align-items: center; }
+
+  /* Footer action bar */
+  .actions {
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .actions .actions-text {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--paper-2);
+    max-width: 480px;
+  }
+  .actions .actions-text strong {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--paper);
+  }
+  .btn {
+    background: var(--accent-2);
+    color: var(--ink);
+    border: 0;
+    padding: 12px 22px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: transform 0.1s ease, background 0.15s;
+  }
+  .btn:hover { background: #c89a30; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn.secondary {
+    background: transparent;
+    color: var(--paper);
+    border: 1px solid var(--paper-3);
+  }
+  .btn.secondary:hover { background: rgba(244, 237, 224, 0.08); }
+
+  /* Extra Work editor */
+  .extra-list { display: flex; flex-direction: column; gap: 8px; }
+  .extra-item {
+    display: grid;
+    grid-template-columns: 1fr 110px;
+    gap: 8px;
+  }
+  .extra-item input {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 7px 9px;
+    font-size: 13px;
+    font-family: "IBM Plex Sans", sans-serif;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+  .extra-item input[type="text"]:nth-child(2),
+  .extra-item input[type="text"]:nth-of-type(2) {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  /* Indicator badges */
+  .badge {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .badge.good { background: #d2dec7; color: var(--good); }
+  .badge.warn { background: #f0d9a5; color: #6f4d0a; }
+  .badge.bad  { background: #eccab8; color: var(--bad); }
+
+  /* Footer */
+  .page-footer {
+    margin-top: 48px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-muted);
+    text-align: center;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    body { padding: 16px 12px 60px; }
+    .panel-body { padding: 14px 12px; }
+    .summary-grid .value { font-size: 18px; }
+    .plan-table { font-size: 12.5px; }
+    .plan-table tbody td, .plan-table thead th { padding: 6px 8px; }
+    .pct-input { width: 54px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="brand">
+      <span class="eyebrow">Labour Construction Agreement</span>
+      <h1>Payment <em>Plan</em></h1>
+    </div>
+    <div class="builder-tag">
+      Builder &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT: INPUTS -->
+    <aside>
+
+      <!-- Parties / Contract -->
+      <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-head"><h2>Contract Details</h2><span class="meta">For PDF</span></div>
+        <div class="panel-body">
+          <div class="field">
+            <label>Owner Name</label>
+            <input type="text" id="ownerName" placeholder="e.g. Ramesh Kumar">
+          </div>
+          <div class="field">
+            <label>Property Address</label>
+            <textarea id="propertyAddress" rows="2" placeholder="e.g. Site #12, Maanya Lotus, Kolar, Karnataka"></textarea>
+          </div>
+          <div class="field">
+            <label>Agreement Date</label>
+            <input type="date" id="agreementDate">
+          </div>
+        </div>
+      </div>
+
+      <!-- Project inputs -->
+      <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-head"><h2>Project Specs</h2><span class="meta">Inputs</span></div>
+        <div class="panel-body">
+          <div class="row-2">
+            <div class="field">
+              <label>Plot Area (sqft)</label>
+              <input type="number" id="plotArea" value="1200">
+            </div>
+            <div class="field">
+              <label>Built-up / Floor (sqft)</label>
+              <input type="number" id="buaPerFloor" value="1200">
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>Total Floors</label>
+              <input type="number" id="totalFloors" value="2" min="1" max="5">
+              <div class="help">G=1, G+1=2, G+2=3...</div>
+            </div>
+            <div class="field">
+              <label>Footing Type</label>
+              <select id="footingType">
+                <option value="Full-Mat">Full-Mat</option>
+                <option value="Box">Box</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Base Rate (Rs. per 100 sqft)</label>
+            <input type="number" id="ratePer100" value="34000">
+            <div class="help">10×10 chadari rate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Minimums & Rounding -->
+      <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-head"><h2>Minimums & Rounding</h2><span class="meta">Floors</span></div>
+        <div class="panel-body">
+          <div class="row-2">
+            <div class="field">
+              <label>Concrete Team Fee (Rs.)</label>
+              <input type="number" id="teamFee" value="20000">
+            </div>
+            <div class="field">
+              <label>Slab Pour Min (Rs.)</label>
+              <input type="number" id="slabMin" value="50000">
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label>Plastering / Floor (Rs.)</label>
+              <input type="number" id="plasterPerFloor" value="25000">
+            </div>
+            <div class="field">
+              <label>Round To Nearest (Rs.)</label>
+              <input type="number" id="roundTo" value="500">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extra Work rates -->
+      <div class="panel">
+        <div class="panel-head"><h2>Extra Work Rates</h2><span class="meta">Per Unit</span></div>
+        <div class="panel-body">
+          <div class="extra-list" id="extraList">
+            <!-- populated by JS -->
+          </div>
+          <div class="help" style="margin-top: 10px; font-size: 11px;">
+            Charged on actuals if requested. Not part of payment plan above.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: SUMMARY + PLAN -->
+    <main>
+
+      <!-- Summary -->
+      <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-head"><h2>Project Summary</h2><span class="meta">Live</span></div>
+        <div class="panel-body" style="padding: 0;">
+          <div class="summary-grid">
+            <div class="cell">
+              <div class="label">Total Built-up Area</div>
+              <div class="value" id="sumArea">— <span class="sub">sqft</span></div>
+            </div>
+            <div class="cell">
+              <div class="label">Total Project Cost</div>
+              <div class="value" id="sumCost">—</div>
+            </div>
+            <div class="cell">
+              <div class="label">Sum of Active %s <span id="pctBadge"></span></div>
+              <div class="value" id="sumPct">—<span class="sub">target ~95%</span></div>
+            </div>
+            <div class="cell">
+              <div class="label">Final Installment <span id="finalBadge"></span></div>
+              <div class="value" id="sumFinal">—<span class="sub" id="finalPct">—% of total</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plan -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Payment Plan</h2>
+          <span class="meta">% editable in column</span>
+        </div>
+        <div class="panel-body" style="padding: 0; overflow-x: auto;">
+          <table class="plan-table" id="planTable">
+            <thead>
+              <tr>
+                <th style="width: 36px;">#</th>
+                <th>Milestone</th>
+                <th class="num" style="width: 92px;">%</th>
+                <th class="num" style="width: 120px;">Amount</th>
+                <th class="num" style="width: 130px;">Pending</th>
+              </tr>
+            </thead>
+            <tbody id="planBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <div class="actions-text">
+          Generates a clean, owner-friendly PDF agreement with the payment schedule, dates &amp; signature blocks. <strong>One sheet, ready to print.</strong>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn secondary" id="resetBtn">Reset %s</button>
+          <button class="btn" id="downloadBtn">Download PDF</button>
+        </div>
+      </div>
+
+      <p class="page-footer">A working calculator. The contract is between Owner and Contractor.</p>
+
+    </main>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   STATE & CONFIG
+========================================================= */
+
+// Milestone definitions (default %, floor type)
+// floor_type: null | "footing" | "plinth" | "slab" | "plaster" | "outside_plaster"
+const FOUNDATION = [
+  { name: "Advance",                    pct: 0.0700, floor: null },
+  { name: "PCC",                        pct: 0.0300, floor: null },
+  { name: "Footing Concrete",           pct: 0.0900, floor: "footing" },
+  { name: "Column Reinforcement",       pct: 0.0100, floor: null },
+  { name: "Column Centering",           pct: 0.0100, floor: null },
+  { name: "Column Concrete",            pct: 0.0150, floor: null },
+  { name: "Plinth Beam Reinforcement",  pct: 0.0150, floor: null },
+  { name: "Plinth Beam Centering",      pct: 0.0250, floor: null },
+  { name: "Plinth Beam Concrete",       pct: 0.0250, floor: "plinth" },
+];
+const FLOOR_TEMPLATE = [
+  { name: "Column Reinforcement",       pct: 0.0150, floor: null },
+  { name: "Column Centering",           pct: 0.0150, floor: null },
+  { name: "Column Concrete",            pct: 0.0200, floor: null },
+  { name: "Lintel Level Block Work",    pct: 0.0300, floor: null },
+  { name: "Lintel Concrete",            pct: 0.0350, floor: null },
+  { name: "Slab Level Block Work",      pct: 0.0075, floor: null },
+  { name: "Slab Centering",             pct: 0.0350, floor: null },
+  { name: "Slab Reinforcement",         pct: 0.0200, floor: null },
+  { name: "Slab Concrete",              pct: 0.0700, floor: "slab" },
+];
+const PLASTERING_TEMPLATE = [
+  { name: "Inside Plastering",          pct: 0.0400, floor: "plaster" },
+];
+const TERRACE = [
+  { name: "Parapet Wall",               pct: 0.0100, floor: null },
+  { name: "Outside Plastering (all floors)", pct: 0.0800, floor: "outside_plaster" },
+];
+const FLOOR_NAMES = ["Ground Floor", "First Floor", "Second Floor", "Third Floor", "Fourth Floor"];
+
+// Default Extra Work items
+const DEFAULT_EXTRAS = [
+  { name: "Water sump",                  rate: "Rs. 10 / litre" },
+  { name: "Sewage tank",                 rate: "Rs. 8 / litre" },
+  { name: "Compound wall",               rate: "On actuals" },
+  { name: "Passage work (PCC + finish)", rate: "Rs. 120 / sqft" },
+];
+
+// Live state — built from defaults on first render
+let rows = [];
+
+/* =========================================================
+   BUILDERS
+========================================================= */
+function buildRows() {
+  const totalFloors = clampFloors(num("totalFloors", 2));
+  const out = [];
+
+  // 1. Foundation
+  for (const m of FOUNDATION) {
+    out.push({ phase: "Foundation", name: m.name, pct: m.pct, floor: m.floor, active: true });
+  }
+  // 2. Per-floor structural
+  for (let fi = 0; fi < 5; fi++) {
+    const active = (fi + 1) <= totalFloors;
+    for (const m of FLOOR_TEMPLATE) {
+      out.push({ phase: FLOOR_NAMES[fi], name: m.name, pct: m.pct, floor: m.floor, active });
+    }
+  }
+  // 3. Plastering (per floor) — only inside
+  for (let fi = 0; fi < 5; fi++) {
+    const active = (fi + 1) <= totalFloors;
+    for (const m of PLASTERING_TEMPLATE) {
+      out.push({
+        phase: "Plastering",
+        name: `${m.name} — ${FLOOR_NAMES[fi]}`,
+        pct: m.pct, floor: m.floor, active
+      });
+    }
+  }
+  // 4. Terrace / Finishing
+  for (const m of TERRACE) {
+    out.push({ phase: "Terrace / Finishing", name: m.name, pct: m.pct, floor: m.floor, active: true });
+  }
+  return out;
+}
+
+/* =========================================================
+   MATH
+========================================================= */
+function getInputs() {
+  return {
+    plotArea:        num("plotArea", 1200),
+    buaPerFloor:     num("buaPerFloor", 1200),
+    totalFloors:     clampFloors(num("totalFloors", 2)),
+    ratePer100:      num("ratePer100", 34000),
+    footingType:     val("footingType", "Full-Mat"),
+    teamFee:         num("teamFee", 20000),
+    slabMin:         num("slabMin", 50000),
+    plasterPerFloor: num("plasterPerFloor", 25000),
+    roundTo:         Math.max(1, num("roundTo", 500)),
+  };
+}
+
+function floorValue(row, inp) {
+  switch (row.floor) {
+    case "footing":         return inp.footingType === "Full-Mat" ? 2 * inp.teamFee : inp.teamFee;
+    case "plinth":          return inp.teamFee;
+    case "slab":            return inp.slabMin;
+    case "plaster":         return inp.plasterPerFloor;
+    case "outside_plaster": return inp.plasterPerFloor * inp.totalFloors;
+    default:                return 0;
+  }
+}
+
+function computePlan() {
+  const inp = getInputs();
+  const totalArea = inp.buaPerFloor * inp.totalFloors;
+  const totalCost = totalArea * inp.ratePer100 / 100;
+
+  let cumulative = 0;
+  let sumPct = 0;
+
+  const computed = rows.map(row => {
+    if (!row.active) {
+      return { ...row, amount: 0, floorAmt: 0, pending: null };
+    }
+    const fl = floorValue(row, inp);
+    const baseAmt = row.pct * totalCost;
+    const rawAmt = Math.max(baseAmt, fl);
+    const rounded = mround(rawAmt, inp.roundTo);
+    cumulative += rounded;
+    sumPct += row.pct;
+    return { ...row, amount: rounded, floorAmt: fl, pending: Math.max(0, totalCost - cumulative) };
+  });
+
+  const sumActive = cumulative;
+  const finalInstallment = Math.max(0, totalCost - sumActive);
+  const grandTotal = sumActive + finalInstallment;
+
+  return {
+    inp, totalArea, totalCost, computed,
+    sumActive, finalInstallment, grandTotal,
+    sumPct,
+    finalPct: totalCost > 0 ? finalInstallment / totalCost : 0,
+  };
+}
+
+function mround(value, multiple) {
+  if (multiple <= 0) return value;
+  return Math.round(value / multiple) * multiple;
+}
+
+/* =========================================================
+   FORMATTERS
+========================================================= */
+const fmtRs = n => "Rs. " + Math.round(n).toLocaleString("en-IN");
+const fmtPct = n => (n * 100).toFixed(2) + "%";
+function fmtIN(n) { return Math.round(n).toLocaleString("en-IN"); }
+
+/* =========================================================
+   RENDER
+========================================================= */
+function renderAll() {
+  const plan = computePlan();
+
+  // Summary
+  document.getElementById("sumArea").innerHTML = `${fmtIN(plan.totalArea)} <span class="sub">sqft (${plan.inp.totalFloors} floor${plan.inp.totalFloors>1?"s":""})</span>`;
+  document.getElementById("sumCost").textContent = fmtRs(plan.totalCost);
+
+  const sumPctEl = document.getElementById("sumPct");
+  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">target ~95%</span>`;
+  // Color the value based on sumPct distance from 95%
+  sumPctEl.classList.remove("warn", "good");
+  const pctBadge = document.getElementById("pctBadge");
+  if (plan.sumPct >= 0.93 && plan.sumPct <= 0.97) {
+    sumPctEl.classList.add("good");
+    pctBadge.innerHTML = '<span class="badge good">on target</span>';
+  } else {
+    sumPctEl.classList.add("warn");
+    pctBadge.innerHTML = '<span class="badge warn">re-balance</span>';
+  }
+
+  const finalEl = document.getElementById("sumFinal");
+  finalEl.innerHTML = `${fmtRs(plan.finalInstallment)} <span class="sub" id="finalPct">${fmtPct(plan.finalPct)} of total</span>`;
+  finalEl.classList.remove("warn", "good");
+  const finalBadge = document.getElementById("finalBadge");
+  if (plan.finalPct >= 0.04 && plan.finalPct <= 0.07) {
+    finalEl.classList.add("good");
+    finalBadge.innerHTML = '<span class="badge good">healthy</span>';
+  } else if (plan.finalPct < 0.04) {
+    finalEl.classList.add("warn");
+    finalBadge.innerHTML = '<span class="badge bad">too low</span>';
+  } else {
+    finalEl.classList.add("warn");
+    finalBadge.innerHTML = '<span class="badge warn">too high</span>';
+  }
+
+  // Plan body
+  const tbody = document.getElementById("planBody");
+  tbody.innerHTML = "";
+
+  let sno = 0;
+  let currentPhase = null;
+  plan.computed.forEach((row, idx) => {
+    if (!row.active) return;
+
+    if (row.phase !== currentPhase) {
+      currentPhase = row.phase;
+      const phaseRow = document.createElement("tr");
+      phaseRow.className = "phase-head";
+      phaseRow.innerHTML = `<td colspan="5">${row.phase}</td>`;
+      tbody.appendChild(phaseRow);
+    }
+
+    sno++;
+    const tr = document.createElement("tr");
+    let floorTag = "";
+    if (row.floor === "footing" || row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
+    else if (row.floor === "plaster" || row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
+
+    tr.innerHTML = `
+      <td>${String(sno).padStart(2,"0")}</td>
+      <td><span class="milestone-cell">${row.name}${floorTag}</span></td>
+      <td class="num">
+        <input class="pct-input" data-idx="${idx}" type="number" step="0.05" min="0" max="100" value="${(row.pct*100).toFixed(2)}">
+      </td>
+      <td class="num">${fmtRs(row.amount)}</td>
+      <td class="num">${fmtRs(row.pending)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Final installment + total rows
+  const finalRow = document.createElement("tr");
+  finalRow.className = "final-row";
+  finalRow.innerHTML = `
+    <td></td>
+    <td><strong>Final Installment</strong> &nbsp;<em style="color:var(--ink-muted); font-style: italic;">on handover</em></td>
+    <td class="num">${fmtPct(plan.finalPct)}</td>
+    <td class="num">${fmtRs(plan.finalInstallment)}</td>
+    <td class="num">${fmtRs(0)}</td>
+  `;
+  tbody.appendChild(finalRow);
+
+  const totalRow = document.createElement("tr");
+  totalRow.className = "total-row";
+  totalRow.innerHTML = `
+    <td colspan="3">TOTAL</td>
+    <td class="num">${fmtRs(plan.grandTotal)}</td>
+    <td></td>
+  `;
+  tbody.appendChild(totalRow);
+
+  // Wire pct inputs
+  tbody.querySelectorAll(".pct-input").forEach(inp => {
+    inp.addEventListener("input", e => {
+      const i = +e.target.dataset.idx;
+      let v = parseFloat(e.target.value);
+      if (isNaN(v)) v = 0;
+      rows[i].pct = v / 100;
+      renderAll();
+      // Restore focus to the same input after re-render
+      const newInp = document.querySelector(`.pct-input[data-idx="${i}"]`);
+      if (newInp) { newInp.focus(); newInp.setSelectionRange(newInp.value.length, newInp.value.length); }
+    });
+  });
+}
+
+function renderExtras() {
+  const list = document.getElementById("extraList");
+  list.innerHTML = "";
+  DEFAULT_EXTRAS.forEach((ex, i) => {
+    const div = document.createElement("div");
+    div.className = "extra-item";
+    div.innerHTML = `
+      <input type="text" data-extra-name="${i}" value="${ex.name}">
+      <input type="text" data-extra-rate="${i}" value="${ex.rate}">
+    `;
+    list.appendChild(div);
+  });
+  list.addEventListener("input", e => {
+    const nameIdx = e.target.dataset.extraName;
+    const rateIdx = e.target.dataset.extraRate;
+    if (nameIdx !== undefined) DEFAULT_EXTRAS[nameIdx].name = e.target.value;
+    if (rateIdx !== undefined) DEFAULT_EXTRAS[rateIdx].rate = e.target.value;
+  });
+}
+
+/* =========================================================
+   HELPERS
+========================================================= */
+function num(id, dflt) {
+  const el = document.getElementById(id);
+  if (!el) return dflt;
+  const v = parseFloat(el.value);
+  return isNaN(v) ? dflt : v;
+}
+function val(id, dflt) {
+  const el = document.getElementById(id);
+  return el ? el.value : dflt;
+}
+function clampFloors(n) {
+  n = Math.round(n);
+  if (n < 1) return 1;
+  if (n > 5) return 5;
+  return n;
+}
+
+/* =========================================================
+   PDF GENERATION
+========================================================= */
+function generatePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const plan = computePlan();
+  const inp = plan.inp;
+
+  const owner = (document.getElementById("ownerName").value || "_____________________").trim();
+  const addr  = (document.getElementById("propertyAddress").value || "_____________________").trim();
+  const date  = formatDateForPDF(document.getElementById("agreementDate").value);
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const M = 50;       // margin
+  let y = 56;
+
+  // ===== Title =====
+  doc.setFont("times", "bold");
+  doc.setFontSize(20);
+  doc.text("LABOUR CONSTRUCTION AGREEMENT", pageW/2, y, { align: "center" });
+  y += 8;
+
+  doc.setDrawColor(120, 100, 60);
+  doc.setLineWidth(0.6);
+  doc.line(M, y, pageW - M, y);
+  y += 22;
+
+  // ===== Preamble =====
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
+  const preamble = `This Labour Construction Agreement (the "Agreement") is made and entered into on ${date} by and between ${owner} (hereinafter referred to as "Owner"), and Nagendra Kumar (Builder) (hereinafter referred to as "Contractor").`;
+  y = writeWrapped(doc, preamble, M, y, pageW - 2*M, 14);
+  y += 16;
+
+  // ===== Section 1 — Scope of Work =====
+  y = sectionHeader(doc, "1. Scope of Work", M, y);
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  y = writeWrapped(doc,
+    `The Contractor agrees to provide labour for the construction of the following items at the Owner's property located at ${addr}:`,
+    M, y, pageW - 2*M, 13);
+  y += 6;
+
+  const scopeItems = [
+    "PCC (Plain Cement Concrete)",
+    "Pedestal / Mat Footing work",
+    "Bar bending & Reinforcement",
+    "Shuttering / Centering",
+    "Column concrete work",
+    "Plinth beam concrete",
+    "Sunken slab work",
+    "Lintel work",
+    "Roof slab work",
+    "Parapet wall (top floor)",
+    "Solid brick wall work",
+    "Inside Plastering (per floor)",
+    "Outside Plastering (all floors)",
+  ];
+  y = writeBullets(doc, scopeItems, M + 6, y, pageW - 2*M - 12, 12);
+  y += 10;
+
+  // ===== Section 2 — Payment Schedule =====
+  y = sectionHeader(doc, "2. Payment Schedule", M, y);
+
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  y = writeWrapped(doc,
+    `Payments will be made in installments based on project progress and a clear rate/measurement methodology. The base rate is INR ${fmtIN(inp.ratePer100)} per 100 sq ft (10×10 chadari), calculated on slab measurements. A single 1× multiplier applies to all floors.`,
+    M, y, pageW - 2*M, 13);
+  y += 6;
+  y = writeWrapped(doc,
+    `Project specs: Built-up area ${fmtIN(plan.totalArea)} sqft across ${inp.totalFloors} floor(s), footing type ${inp.footingType}. Total Project Cost: ${fmtRs(plan.totalCost)}.`,
+    M, y, pageW - 2*M, 13);
+  y += 12;
+
+  // Table
+  const body = [];
+  let serial = 0;
+  let currentPhase = null;
+
+  plan.computed.forEach(row => {
+    if (!row.active) return;
+    if (row.phase !== currentPhase) {
+      currentPhase = row.phase;
+      body.push([{
+        content: row.phase.toUpperCase(),
+        colSpan: 4,
+        styles: { fillColor: [232, 220, 195], textColor: [60, 50, 35], fontStyle: "bold", fontSize: 9, halign: "left" }
+      }]);
+    }
+    serial++;
+    body.push([
+      String(serial).padStart(2, "0"),
+      row.name,
+      fmtRs(row.amount),
+      "" // signature col left blank
+    ]);
+  });
+
+  // Final installment row
+  body.push([
+    "",
+    { content: "Final Installment (on handover)", styles: { fontStyle: "bold" } },
+    { content: fmtRs(plan.finalInstallment), styles: { fontStyle: "bold" } },
+    ""
+  ]);
+
+  // Total row
+  body.push([
+    { content: "TOTAL", colSpan: 2, styles: { fillColor: [26, 24, 20], textColor: [244, 237, 224], fontStyle: "bold", halign: "right" } },
+    { content: fmtRs(plan.grandTotal), styles: { fillColor: [26, 24, 20], textColor: [244, 237, 224], fontStyle: "bold" } },
+    { content: "", styles: { fillColor: [26, 24, 20] } }
+  ]);
+
+  doc.autoTable({
+    startY: y,
+    head: [["#", "Milestone", "Amount", "Date / Signature"]],
+    body: body,
+    theme: "grid",
+    margin: { left: M, right: M },
+    styles: {
+      font: "times",
+      fontSize: 10,
+      cellPadding: 4,
+      lineColor: [180, 165, 130],
+      lineWidth: 0.4,
+      textColor: [26, 24, 20]
+    },
+    headStyles: {
+      fillColor: [26, 24, 20],
+      textColor: [244, 237, 224],
+      fontStyle: "bold",
+      fontSize: 9.5,
+      halign: "left"
+    },
+    columnStyles: {
+      0: { cellWidth: 28, halign: "center" },
+      1: { cellWidth: "auto" },
+      2: { cellWidth: 75, halign: "right" },
+      3: { cellWidth: 130 }
+    },
+    didDrawPage: function (data) { /* allow page break */ }
+  });
+
+  y = doc.lastAutoTable.finalY + 16;
+
+  // ===== Section 3 — Extra Work =====
+  if (y > 680) { doc.addPage(); y = 56; }
+  y = sectionHeader(doc, "3. Extra Work", M, y);
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  y = writeWrapped(doc,
+    `Any additional work not explicitly mentioned in Section 1 (Scope of Work) will be considered "Extra Work" and will be charged on actual costs. This includes, but is not limited to:`,
+    M, y, pageW - 2*M, 13);
+  y += 6;
+
+  const extraLines = DEFAULT_EXTRAS.map(ex => `${ex.name} — ${ex.rate}`);
+  y = writeBullets(doc, extraLines, M + 6, y, pageW - 2*M - 12, 12);
+  y += 4;
+  y = writeWrapped(doc, "The Owner shall be notified and agree to the costs of any Extra Work before it commences.",
+    M, y, pageW - 2*M, 13);
+  y += 14;
+
+  // ===== Section 4 — General Conditions =====
+  if (y > 660) { doc.addPage(); y = 56; }
+  y = sectionHeader(doc, "4. General Conditions", M, y);
+  const cond = [
+    "The Contractor shall supply all necessary labor for the completion of the work.",
+    "The Owner shall provide all required materials for the construction.",
+    "The Contractor is obliged to execute the work in a professional and skilled manner.",
+    "Any disputes arising from this Agreement shall be resolved amicably between the Owner and the Contractor.",
+    "Scaffolding rods, balli, centering sheets, and bar bending machinery shall be furnished by the Contractor.",
+    "Vibration rods for concrete and labour tools (shovels, spades, trowels, line dori, chalk, spirit levels, measuring tapes) shall be supplied by the Owner.",
+    "The Contractor is committed to finishing the civil work within four months from the commencement date.",
+    "A curing period of 15 days is mandatory for each roofing slab.",
+  ];
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  y = writeBullets(doc, cond, M + 6, y, pageW - 2*M - 12, 12);
+  y += 22;
+
+  // ===== Section 5 — Signatures =====
+  if (y > 680) { doc.addPage(); y = 56; }
+  y = sectionHeader(doc, "5. Signatures", M, y);
+  y += 24;
+
+  const sigW = (pageW - 2*M - 40) / 2;
+  // Owner
+  doc.setDrawColor(80, 70, 50);
+  doc.setLineWidth(0.5);
+  doc.line(M, y, M + sigW, y);
+  doc.line(M + sigW + 40, y, M + 2*sigW + 40, y);
+  y += 13;
+  doc.setFont("times", "bold");
+  doc.setFontSize(10.5);
+  doc.text("Owner", M, y);
+  doc.text("Contractor", M + sigW + 40, y);
+  y += 13;
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  doc.text(owner, M, y);
+  doc.text("Nagendra Kumar (Builder)", M + sigW + 40, y);
+
+  // Save
+  const fname = `Construction_Agreement_${(owner || "Owner").replace(/\s+/g,"_")}_${todayISO()}.pdf`;
+  doc.save(fname);
+}
+
+/* PDF helpers */
+function sectionHeader(doc, label, x, y) {
+  doc.setFont("times", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(26, 24, 20);
+  doc.text(label, x, y);
+  doc.setDrawColor(180, 134, 27);
+  doc.setLineWidth(1.2);
+  doc.line(x, y + 3, x + 38, y + 3);
+  return y + 18;
+}
+function writeWrapped(doc, text, x, y, maxW, lh) {
+  const lines = doc.splitTextToSize(text, maxW);
+  lines.forEach(line => {
+    if (y > 780) { doc.addPage(); y = 56; }
+    doc.text(line, x, y);
+    y += lh;
+  });
+  return y;
+}
+function writeBullets(doc, items, x, y, maxW, lh) {
+  items.forEach(item => {
+    const lines = doc.splitTextToSize(item, maxW - 12);
+    lines.forEach((line, i) => {
+      if (y > 780) { doc.addPage(); y = 56; }
+      if (i === 0) doc.text("•", x - 8, y);
+      doc.text(line, x + 4, y);
+      y += lh;
+    });
+  });
+  return y;
+}
+function formatDateForPDF(iso) {
+  if (!iso) return "_______________";
+  const d = new Date(iso);
+  if (isNaN(d)) return "_______________";
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+}
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+function init() {
+  // Set default date to today
+  document.getElementById("agreementDate").valueAsDate = new Date();
+
+  // Wire all input changes -> recompute, but preserve user-edited rows[] when structural inputs change
+  ["plotArea","buaPerFloor","totalFloors","ratePer100","footingType",
+   "teamFee","slabMin","plasterPerFloor","roundTo"].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", () => {
+      // Total floors change -> rebuild structure (preserve common %s by keeping defaults)
+      if (id === "totalFloors") rows = buildRows();
+      renderAll();
+    });
+    el.addEventListener("change", () => {
+      if (id === "totalFloors") rows = buildRows();
+      renderAll();
+    });
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    rows = buildRows();
+    renderAll();
+  });
+  document.getElementById("downloadBtn").addEventListener("click", generatePDF);
+
+  rows = buildRows();
+  renderExtras();
+  renderAll();
+}
+window.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
