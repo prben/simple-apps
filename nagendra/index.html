@@ -757,25 +757,25 @@ const UNDERGROUND_ITEMS = [
   { name: "PCC",                          weight: 1.5, floor: "concrete" },
   { name: "Footing Concrete",             weight: 5,   floor: "footing" },
   { name: "Footing Column Reinforcement", weight: 1,   floor: null },
-  { name: "Footing Column Centering",     weight: 1,   floor: null },
+  { name: "Footing Column Centering",     weight: 1,   floor: "centering" },
   { name: "Footing Column Concrete",      weight: 1.5, floor: "concrete" },
   { name: "Sidestone Work",               weight: 2,   floor: "sidestone" },
   { name: "Plinth Beam Reinforcement",    weight: 1.5, floor: null },
-  { name: "Plinth Beam Centering",        weight: 3,   floor: null },
+  { name: "Plinth Beam Centering",        weight: 3,   floor: "centering" },
   { name: "Plinth Beam Concrete",         weight: 3.5, floor: "plinth" },
 ];
 
 // Per-floor structural — weight-distributed within the (40/N)% per-floor bucket.
 // Heaviest weights: slab concrete pour, slab centering — most labour intensive.
 const FLOOR_ITEMS = [
-  { name: "Column Reinforcement",       weight: 1,    floor: null },
-  { name: "Column Centering",           weight: 1,    floor: null },
+  { name: "Column Reinforcement",       weight: 1,    floor: "col_rebar" },
+  { name: "Column Centering",           weight: 1,    floor: "centering" },
   { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
   { name: "Lintel Concrete",            weight: 3,    floor: "lintel" },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
-  { name: "Slab Centering",             weight: 4,    floor: null },
-  { name: "Slab Reinforcement",         weight: 1,    floor: null },
+  { name: "Slab Reinforcement",         weight: 1,    floor: "slab_rebar" },
+  { name: "Slab Centering",             weight: 4,    floor: "centering" },
   { name: "Slab Concrete",              weight: 5,    floor: "slab" },
 ];
 
@@ -891,6 +891,23 @@ function lintelMax(inp) {
   return Infinity;
 }
 
+// Column reinforcement (per floor) — fixed value tiered by per-floor BUA.
+function colRebarTier(inp) {
+  const a = inp.buaPerFloor;
+  if (a <= 800)  return 10000;
+  if (a <= 1500) return 15000;
+  if (a <= 3000) return 20000;
+  return 20000;
+}
+// Slab reinforcement (per floor) — fixed value tiered by per-floor BUA.
+function slabRebarTier(inp) {
+  const a = inp.buaPerFloor;
+  if (a <= 800)  return 15000;
+  if (a <= 1500) return 20000;
+  if (a <= 3000) return 30000;
+  return 30000;
+}
+
 function floorValue(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
@@ -910,6 +927,9 @@ function floorValue(row, inp) {
     case "plaster":   m = scale(inp.plasterPerFloor); break;
     case "sidestone": m = Math.round(inp.buaPerFloor * SIDESTONE_RATIO * SIDESTONE_RATE * k); break;
     case "lintel":    m = 0; break; // no specific min; universal MIN_PER_STEP applies
+    case "col_rebar": m = scale(colRebarTier(inp)); break;  // locked
+    case "slab_rebar":m = scale(slabRebarTier(inp)); break; // locked
+    case "centering": m = 0; break; // derived: ½ × corresponding reinforcement
     case "outside_plaster": return 0; // derived: half of inside plastering total
     default:          m = 0;
   }
@@ -932,10 +952,12 @@ function ceilFor(row, inp) {
   const k = minScale(inp);
   const scale = v => Math.round(v * k);
   switch (row.floor) {
-    case "advance": return scale(ADVANCE_MAX);
-    case "footing": return Math.max(floorValue(row, inp), scale(FOOTING_MAX));
-    case "lintel":  return Math.max(floorValue(row, inp), lintelMax(inp));
-    default:        return Infinity;
+    case "advance":   return scale(ADVANCE_MAX);
+    case "footing":   return Math.max(floorValue(row, inp), scale(FOOTING_MAX));
+    case "lintel":    return Math.max(floorValue(row, inp), lintelMax(inp));
+    case "col_rebar": return floorValue(row, inp); // locked at tier
+    case "slab_rebar":return floorValue(row, inp); // locked at tier
+    default:          return Infinity;
   }
 }
 
@@ -1015,6 +1037,39 @@ function computePlan() {
   for (const row of computed) {
     const ceil = ceilFor(row, inp);
     if (row.amount > ceil) row.amount = ceil;
+  }
+
+  // Pass 1.6: Mat footing line item is cheaper than Box would be. Route the
+  // actual line-item saving (= Box-equivalent cap minus Mat's amount) into
+  // the first slab concrete (Ground Floor) instead of the final installment.
+  if (inp.footingType === "Full-Mat") {
+    const footing = computed.find(r => r.floor === "footing");
+    if (footing) {
+      const k = minScale(inp);
+      const wouldBeBox = Math.round(FOOTING_MAX * k);
+      const saving = mround(Math.max(0, wouldBeBox - footing.amount), inp.roundTo);
+      if (saving > 0) {
+        const firstSlab = computed.find(r => r.floor === "slab" && r.phase === FLOOR_NAMES[0]);
+        if (firstSlab) firstSlab.amount += saving;
+      }
+    }
+  }
+
+  // Pass 1.7: derive every Centering row as ½ × the matching Reinforcement row
+  // in the same phase. Names pair by "X Reinforcement" → "X Centering".
+  const phaseRows = new Map();
+  for (const r of computed) {
+    if (!phaseRows.has(r.phase)) phaseRows.set(r.phase, []);
+    phaseRows.get(r.phase).push(r);
+  }
+  for (const rows of phaseRows.values()) {
+    for (const rebar of rows.filter(r => r.name.endsWith("Reinforcement"))) {
+      const centeringName = rebar.name.replace("Reinforcement", "Centering");
+      const centering = rows.find(r => r.name === centeringName);
+      if (centering) {
+        centering.amount = Math.max(MIN_PER_STEP, mround(rebar.amount / 2, inp.roundTo));
+      }
+    }
   }
 
   // Pass 2: override outside plastering = half of inside plastering total
@@ -1174,6 +1229,9 @@ function renderAll() {
     else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
     else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
     else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
+    else if (row.floor === "col_rebar") floorTag = `<span class="min-pay-tag team">fixed ${fmtIN(row.floorAmt)}</span>`;
+    else if (row.floor === "slab_rebar") floorTag = `<span class="min-pay-tag slab">fixed ${fmtIN(row.floorAmt)}</span>`;
+    else if (row.floor === "centering") floorTag = `<span class="min-pay-tag team">½ × rebar</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
