@@ -756,12 +756,12 @@ const BUDGET = {
 const UNDERGROUND_ITEMS = [
   { name: "PCC",                          weight: 1.5, floor: "concrete" },
   { name: "Footing Concrete",             weight: 5,   floor: "footing" },
-  { name: "Footing Column Reinforcement", weight: 1,   floor: null },
-  { name: "Footing Column Centering",     weight: 1,   floor: "centering" },
+  { name: "Footing Column Reinforcement", weight: 1,   floor: "col_rebar" },
+  { name: "Footing Column Centering",     weight: 0,   floor: "centering" },
   { name: "Footing Column Concrete",      weight: 1.5, floor: "concrete" },
   { name: "Sidestone Work",               weight: 2,   floor: "sidestone" },
-  { name: "Plinth Beam Reinforcement",    weight: 1.5, floor: null },
-  { name: "Plinth Beam Centering",        weight: 3,   floor: "centering" },
+  { name: "Plinth Beam Reinforcement",    weight: 1.5, floor: "col_rebar" },
+  { name: "Plinth Beam Centering",        weight: 0,   floor: "centering" },
   { name: "Plinth Beam Concrete",         weight: 3.5, floor: "plinth" },
 ];
 
@@ -769,13 +769,13 @@ const UNDERGROUND_ITEMS = [
 // Heaviest weights: slab concrete pour, slab centering — most labour intensive.
 const FLOOR_ITEMS = [
   { name: "Column Reinforcement",       weight: 1,    floor: "col_rebar" },
-  { name: "Column Centering",           weight: 1,    floor: "centering" },
+  { name: "Column Centering",           weight: 0,    floor: "centering" },
   { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
   { name: "Lintel Concrete",            weight: 3,    floor: "lintel" },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
   { name: "Slab Reinforcement",         weight: 1,    floor: "slab_rebar" },
-  { name: "Slab Centering",             weight: 4,    floor: "centering" },
+  { name: "Slab Centering",             weight: 0,    floor: "centering" },
   { name: "Slab Concrete",              weight: 5,    floor: "slab" },
 ];
 
@@ -1009,7 +1009,12 @@ function computePlan() {
   const inp = getInputs();
   const N = inp.totalFloors;
   const totalArea = inp.buaPerFloor * N;
-  const totalCost = totalArea * inp.ratePer100 / 100;
+  // Mat footing uses a single mixer → contractor discount on the grand total.
+  const baseCost = totalArea * inp.ratePer100 / 100;
+  const matSaving = inp.footingType === "Full-Mat"
+    ? Math.round((FOOTING_MAX - inp.matFootingMin) * minScale(inp))
+    : 0;
+  const totalCost = baseCost - matSaving;
 
   const sections = buildSections(N);
   const computed = [];
@@ -1091,7 +1096,7 @@ function computePlan() {
     if (currentFinal >= targetFinal) break;
 
     const cuttable = computed
-      .filter(r => r.floor !== "outside_plaster")
+      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering")
       .filter(r => r.amount - floorValue(r, inp) >= inp.roundTo)
       .sort((a, b) => b.amount - a.amount);
     if (cuttable.length === 0) break;
@@ -1116,7 +1121,7 @@ function computePlan() {
     if (currentFinal <= fcap) break;
 
     const bumpable = computed
-      .filter(r => r.floor !== "outside_plaster")
+      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering")
       .filter(r => r.amount + inp.roundTo <= ceilFor(r, inp))
       .sort((a, b) => a.amount - b.amount);
     if (bumpable.length === 0) break;
@@ -1205,6 +1210,13 @@ function renderAll() {
   const tbody = document.getElementById("planBody");
   tbody.innerHTML = "";
 
+  // Pre-compute each phase's subtotal (sum of its line items)
+  const phaseTotals = new Map();
+  for (const r of plan.computed) {
+    if (!r.active) continue;
+    phaseTotals.set(r.phase, (phaseTotals.get(r.phase) || 0) + r.amount);
+  }
+
   let sno = 0;
   let currentPhase = null;
   plan.computed.forEach((row, idx) => {
@@ -1212,9 +1224,11 @@ function renderAll() {
 
     if (row.phase !== currentPhase) {
       currentPhase = row.phase;
+      const subTotal = phaseTotals.get(row.phase) || 0;
+      const subPct = plan.totalCost > 0 ? subTotal / plan.totalCost : 0;
       const phaseRow = document.createElement("tr");
       phaseRow.className = "phase-head";
-      phaseRow.innerHTML = `<td colspan="5">${row.phase}</td>`;
+      phaseRow.innerHTML = `<td colspan="5"><span style="display:flex;justify-content:space-between;gap:12px;"><span>${row.phase}</span><span style="font-weight:400;color:var(--ink-muted);">${fmtPct(subPct)} &nbsp;·&nbsp; ${fmtRs(subTotal)}</span></span></td>`;
       tbody.appendChild(phaseRow);
     }
 
