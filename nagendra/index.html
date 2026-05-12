@@ -19,16 +19,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
-<script>
-function googleTranslateElementInit() {
-  new google.translate.TranslateElement({
-    pageLanguage: "en",
-    includedLanguages: "hi",
-    autoDisplay: false,
-  }, "google_translate_element");
-}
-</script>
-<script src="https://translate.google.com/translate_a/element.js?cbk=googleTranslateElementInit"></script>
 <style>
   :root {
     --ink:        #1a1814;
@@ -129,14 +119,6 @@ function googleTranslateElementInit() {
   }
   .lang-btn:hover { background: var(--paper-2); }
   .lang-btn.active { background: var(--accent-2); color: var(--ink); }
-  #google_translate_element { display: none; }
-
-  /* Suppress the Google Translate top banner */
-  .goog-te-banner-frame.skiptranslate,
-  .skiptranslate > iframe { display: none !important; }
-  body { top: 0 !important; }
-  .goog-tooltip, .goog-tooltip:hover { display: none !important; }
-  .goog-text-highlight { background: none !important; box-shadow: none !important; }
 
   /* Layout */
   .grid {
@@ -545,14 +527,13 @@ function googleTranslateElementInit() {
 
   <header>
     <div class="brand">
-      <span class="eyebrow">Labour Construction Agreement</span>
-      <h1>Payment <em>Plan</em></h1>
+      <span class="eyebrow" data-i18n="Labour Construction Agreement">Labour Construction Agreement</span>
+      <h1><span data-i18n="Payment">Payment</span> <em data-i18n="Plan">Plan</em></h1>
     </div>
     <div class="lang-switch">
-      <button id="hindiToggle" class="lang-btn notranslate" type="button" title="हिंदी में देखें">हिंदी</button>
-      <div id="google_translate_element"></div>
-      <div class="builder-tag notranslate">
-        Builder &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
+      <button id="hindiToggle" class="lang-btn" type="button" title="हिंदी में देखें">हिंदी</button>
+      <div class="builder-tag">
+        <span data-i18n="Builder">Builder</span> &nbsp;·&nbsp; <strong>Nagendra Kumar</strong>
       </div>
     </div>
   </header>
@@ -564,18 +545,18 @@ function googleTranslateElementInit() {
 
       <!-- Parties / Contract -->
       <div class="panel" style="margin-bottom: 20px;">
-        <div class="panel-head"><h2>Contract Details</h2><span class="meta">For PDF</span></div>
+        <div class="panel-head"><h2 data-i18n="Contract Details">Contract Details</h2><span class="meta" data-i18n="For PDF">For PDF</span></div>
         <div class="panel-body">
           <div class="field">
-            <label>Owner Name</label>
+            <label data-i18n="Owner Name">Owner Name</label>
             <input type="text" id="ownerName" placeholder="e.g. Ramesh Kumar">
           </div>
           <div class="field">
-            <label>Property Address</label>
+            <label data-i18n="Property Address">Property Address</label>
             <textarea id="propertyAddress" rows="2" placeholder="e.g. Site #12, Maanya Lotus, Kolar, Karnataka"></textarea>
           </div>
           <div class="field">
-            <label>Agreement Date</label>
+            <label data-i18n="Agreement Date">Agreement Date</label>
             <input type="date" id="agreementDate">
           </div>
         </div>
@@ -583,71 +564,71 @@ function googleTranslateElementInit() {
 
       <!-- Project inputs -->
       <div class="panel" style="margin-bottom: 20px;">
-        <div class="panel-head"><h2>Project Specs</h2><span class="meta">Inputs</span></div>
+        <div class="panel-head"><h2 data-i18n="Project Specs">Project Specs</h2><span class="meta" data-i18n="Inputs">Inputs</span></div>
         <div class="panel-body">
           <div class="row-2">
             <div class="field">
-              <label>Plot Area (sqft)</label>
+              <label data-i18n="Plot Area (sqft)">Plot Area (sqft)</label>
               <input type="number" id="plotArea" value="1200">
             </div>
             <div class="field">
-              <label>Built-up / Floor (sqft)</label>
+              <label data-i18n="Built-up / Floor (sqft)">Built-up / Floor (sqft)</label>
               <input type="number" id="buaPerFloor" value="1200">
             </div>
           </div>
           <div class="row-2">
             <div class="field">
-              <label>Total Floors</label>
+              <label data-i18n="Total Floors">Total Floors</label>
               <input type="number" id="totalFloors" value="2" min="1" max="5">
-              <div class="help">G=1, G+1=2, G+2=3...</div>
+              <div class="help" data-i18n="G=1, G+1=2, G+2=3...">G=1, G+1=2, G+2=3...</div>
             </div>
             <div class="field">
-              <label>Footing Type</label>
+              <label data-i18n="Footing Type">Footing Type</label>
               <select id="footingType">
-                <option value="Full-Mat">Full-Mat</option>
-                <option value="Box">Box</option>
+                <option value="Full-Mat" data-i18n="Full-Mat">Full-Mat</option>
+                <option value="Box" data-i18n="Box">Box</option>
               </select>
-              <div class="help">Mat: 1 mixer · Box: multi-pour (Rs. 65k)</div>
+              <div class="help" data-i18n="Mat: 1 mixer · Box: multi-pour (Rs. 65k)">Mat: 1 mixer · Box: multi-pour (Rs. 65k)</div>
             </div>
           </div>
           <div class="field">
-            <label>Base Rate (Rs. per 100 sqft)</label>
+            <label data-i18n="Base Rate (Rs. per 100 sqft)">Base Rate (Rs. per 100 sqft)</label>
             <input type="number" id="ratePer100" value="34000">
-            <div class="help">10×10 chadari rate</div>
+            <div class="help" data-i18n="10×10 chadari rate">10×10 chadari rate</div>
           </div>
         </div>
       </div>
 
       <!-- Minimums & Rounding -->
       <div class="panel" style="margin-bottom: 20px;">
-        <div class="panel-head"><h2>Minimums & Rounding</h2><span class="meta">Floors</span></div>
+        <div class="panel-head"><h2 data-i18n="Minimums & Rounding">Minimums & Rounding</h2><span class="meta" data-i18n="Floors">Floors</span></div>
         <div class="panel-body">
           <div class="row-2">
             <div class="field">
-              <label>Slab Concrete Min (Rs.)</label>
+              <label data-i18n="Slab Concrete Min (Rs.)">Slab Concrete Min (Rs.)</label>
               <input type="number" id="slabMin" value="50000">
             </div>
             <div class="field">
-              <label>Plinth Beam Min (Rs.)</label>
+              <label data-i18n="Plinth Beam Min (Rs.)">Plinth Beam Min (Rs.)</label>
               <input type="number" id="plinthMin" value="30000">
             </div>
           </div>
           <div class="field">
-            <label>Plastering / Floor (Rs.)</label>
+            <label data-i18n="Plastering / Floor (Rs.)">Plastering / Floor (Rs.)</label>
             <input type="number" id="plasterPerFloor" value="17000">
           </div>
-          <div class="help" style="margin-top: 4px;">All amounts rounded to the nearest Rs. 5,000.</div>
+          <div class="help" style="margin-top: 4px;" data-i18n="All amounts rounded to the nearest Rs. 5,000.">All amounts rounded to the nearest Rs. 5,000.</div>
         </div>
       </div>
 
       <!-- Extra Work rates -->
       <div class="panel">
-        <div class="panel-head"><h2>Extra Work Rates</h2><span class="meta">Per Unit</span></div>
+        <div class="panel-head"><h2 data-i18n="Extra Work Rates">Extra Work Rates</h2><span class="meta" data-i18n="Per Unit">Per Unit</span></div>
         <div class="panel-body">
           <div class="extra-list" id="extraList">
             <!-- populated by JS -->
           </div>
-          <div class="help" style="margin-top: 10px; font-size: 11px;">
+          <div class="help" style="margin-top: 10px; font-size: 11px;" data-i18n="Charged on actuals if requested. Not part of payment plan above.">
             Charged on actuals if requested. Not part of payment plan above.
           </div>
         </div>
@@ -659,23 +640,23 @@ function googleTranslateElementInit() {
 
       <!-- Summary -->
       <div class="panel" style="margin-bottom: 20px;">
-        <div class="panel-head"><h2>Project Summary</h2><span class="meta">Live</span></div>
+        <div class="panel-head"><h2 data-i18n="Project Summary">Project Summary</h2><span class="meta" data-i18n="Live">Live</span></div>
         <div class="panel-body" style="padding: 0;">
           <div class="summary-grid">
             <div class="cell">
-              <div class="label">Total Built-up Area</div>
+              <div class="label" data-i18n="Total Built-up Area">Total Built-up Area</div>
               <div class="value" id="sumArea">— <span class="sub">sqft</span></div>
             </div>
             <div class="cell">
-              <div class="label">Total Project Cost</div>
+              <div class="label" data-i18n="Total Project Cost">Total Project Cost</div>
               <div class="value" id="sumCost">—</div>
             </div>
             <div class="cell">
-              <div class="label">Sum of Active %s <span id="pctBadge"></span></div>
+              <div class="label"><span data-i18n="Sum of Active %s">Sum of Active %s</span> <span id="pctBadge"></span></div>
               <div class="value" id="sumPct">—<span class="sub">target ~95%</span></div>
             </div>
             <div class="cell">
-              <div class="label">Final Installment <span id="finalBadge"></span></div>
+              <div class="label"><span data-i18n="Final Installment">Final Installment</span> <span id="finalBadge"></span></div>
               <div class="value" id="sumFinal">—<span class="sub" id="finalPct">—% of total</span></div>
             </div>
           </div>
@@ -685,18 +666,18 @@ function googleTranslateElementInit() {
       <!-- Plan -->
       <div class="panel">
         <div class="panel-head">
-          <h2>Payment Plan</h2>
-          <span class="meta">auto-allocated</span>
+          <h2 data-i18n="Payment Plan">Payment Plan</h2>
+          <span class="meta" data-i18n="auto-allocated">auto-allocated</span>
         </div>
         <div class="panel-body" style="padding: 0; overflow-x: auto;">
           <table class="plan-table" id="planTable">
             <thead>
               <tr>
                 <th style="width: 36px;">#</th>
-                <th>Milestone</th>
+                <th data-i18n="Milestone">Milestone</th>
                 <th class="num" style="width: 92px;">%</th>
-                <th class="num" style="width: 120px;">Amount</th>
-                <th class="num" style="width: 130px;">Pending</th>
+                <th class="num" style="width: 120px;" data-i18n="Amount">Amount</th>
+                <th class="num" style="width: 130px;" data-i18n="Pending">Pending</th>
               </tr>
             </thead>
             <tbody id="planBody"></tbody>
@@ -706,16 +687,16 @@ function googleTranslateElementInit() {
 
       <!-- Actions -->
       <div class="actions">
-        <div class="actions-text">
-          Generates a clean, owner-friendly PDF agreement with the payment schedule, dates &amp; signature blocks. <strong>One sheet, ready to print.</strong>
+        <div class="actions-text" data-i18n="Generates a clean, owner-friendly PDF agreement with the payment schedule, dates & signature blocks.">
+          Generates a clean, owner-friendly PDF agreement with the payment schedule, dates &amp; signature blocks. <strong data-i18n="One sheet, ready to print.">One sheet, ready to print.</strong>
         </div>
         <div style="display: flex; gap: 10px;">
-          <button class="btn secondary" id="resetBtn">Reset All</button>
-          <button class="btn" id="downloadBtn">Download PDF</button>
+          <button class="btn secondary" id="resetBtn" data-i18n="Reset All">Reset All</button>
+          <button class="btn" id="downloadBtn" data-i18n="Download PDF">Download PDF</button>
         </div>
       </div>
 
-      <p class="page-footer">A working calculator. The contract is between Owner and Contractor.</p>
+      <p class="page-footer" data-i18n="A working calculator. The contract is between Owner and Contractor.">A working calculator. The contract is between Owner and Contractor.</p>
 
     </main>
   </div>
@@ -1191,35 +1172,35 @@ function renderAll() {
   const plan = computePlan();
 
   // Summary
-  document.getElementById("sumArea").innerHTML = `${fmtIN(plan.totalArea)} <span class="sub">sqft (${plan.inp.totalFloors} floor${plan.inp.totalFloors>1?"s":""})</span>`;
+  const floorWord = plan.inp.totalFloors > 1 ? t("floors") : t("floor");
+  document.getElementById("sumArea").innerHTML = `${fmtIN(plan.totalArea)} <span class="sub">${t("sqft")} (${plan.inp.totalFloors} ${floorWord})</span>`;
   document.getElementById("sumCost").textContent = fmtRs(plan.totalCost);
 
   const sumPctEl = document.getElementById("sumPct");
-  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">target ~95%</span>`;
-  // Color the value based on sumPct distance from 95% target
+  sumPctEl.innerHTML = `${fmtPct(plan.sumPct)} <span class="sub">${t("target ~95%")}</span>`;
   sumPctEl.classList.remove("warn", "good");
   const pctBadge = document.getElementById("pctBadge");
   if (plan.sumPct >= 0.94 && plan.sumPct <= 0.96) {
     sumPctEl.classList.add("good");
-    pctBadge.innerHTML = '<span class="badge good">on target</span>';
+    pctBadge.innerHTML = `<span class="badge good">${t("on target")}</span>`;
   } else {
     sumPctEl.classList.add("warn");
-    pctBadge.innerHTML = '<span class="badge warn">re-balance</span>';
+    pctBadge.innerHTML = `<span class="badge warn">${t("re-balance")}</span>`;
   }
 
   const finalEl = document.getElementById("sumFinal");
-  finalEl.innerHTML = `${fmtRs(plan.finalInstallment)} <span class="sub" id="finalPct">${fmtPct(plan.finalPct)} of total</span>`;
+  finalEl.innerHTML = `${fmtRs(plan.finalInstallment)} <span class="sub" id="finalPct">${fmtPct(plan.finalPct)} ${t("of total")}</span>`;
   finalEl.classList.remove("warn", "good");
   const finalBadge = document.getElementById("finalBadge");
   if (plan.finalPct >= 0.04 && plan.finalPct <= 0.07) {
     finalEl.classList.add("good");
-    finalBadge.innerHTML = '<span class="badge good">healthy</span>';
+    finalBadge.innerHTML = `<span class="badge good">${t("healthy")}</span>`;
   } else if (plan.finalPct < 0.04) {
     finalEl.classList.add("warn");
-    finalBadge.innerHTML = '<span class="badge bad">too low</span>';
+    finalBadge.innerHTML = `<span class="badge bad">${t("too low")}</span>`;
   } else {
     finalEl.classList.add("warn");
-    finalBadge.innerHTML = '<span class="badge warn">too high</span>';
+    finalBadge.innerHTML = `<span class="badge warn">${t("too high")}</span>`;
   }
 
   // Plan body
@@ -1244,29 +1225,30 @@ function renderAll() {
       const subPct = plan.totalCost > 0 ? subTotal / plan.totalCost : 0;
       const phaseRow = document.createElement("tr");
       phaseRow.className = "phase-head";
-      phaseRow.innerHTML = `<td colspan="5"><span style="display:flex;justify-content:space-between;gap:12px;"><span>${row.phase}</span><span style="font-weight:400;color:var(--ink-muted);">${fmtPct(subPct)} &nbsp;·&nbsp; ${fmtRs(subTotal)}</span></span></td>`;
+      phaseRow.innerHTML = `<td colspan="5"><span style="display:flex;justify-content:space-between;gap:12px;"><span>${t(row.phase)}</span><span style="font-weight:400;color:var(--ink-muted);">${fmtPct(subPct)} &nbsp;·&nbsp; ${fmtRs(subTotal)}</span></span></td>`;
       tbody.appendChild(phaseRow);
     }
 
     sno++;
     const tr = document.createElement("tr");
+    const tagTeam = "min-pay-tag team", tagSlab = "min-pay-tag slab", tagPl = "min-pay-tag plaster";
     let floorTag = "";
-    if (row.floor === "footing") floorTag = `<span class="min-pay-tag team">fixed ${fmtIN(row.floorAmt)}</span>`;
-    else if (row.floor === "plinth") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "slab") floorTag = `<span class="min-pay-tag slab">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "concrete") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "advance") floorTag = `<span class="min-pay-tag team">${fmtIN(row.floorAmt)} – ${fmtIN(ceilFor(row, plan.inp))}</span>`;
-    else if (row.floor === "sidestone") floorTag = `<span class="min-pay-tag team">= col concrete</span>`;
-    else if (row.floor === "plaster") floorTag = `<span class="min-pay-tag plaster">${fmtIN(row.floorAmt)} min</span>`;
-    else if (row.floor === "outside_plaster") floorTag = `<span class="min-pay-tag plaster">½ × inside</span>`;
-    else if (row.floor === "lintel") floorTag = `<span class="min-pay-tag team">max ${fmtIN(ceilFor(row, plan.inp))}</span>`;
-    else if (row.floor === "col_rebar") floorTag = `<span class="min-pay-tag team">fixed ${fmtIN(row.floorAmt)}</span>`;
-    else if (row.floor === "slab_rebar") floorTag = `<span class="min-pay-tag slab">fixed ${fmtIN(row.floorAmt)}</span>`;
-    else if (row.floor === "centering") floorTag = `<span class="min-pay-tag team">${row.name === "Slab Centering" ? "= rebar" : "½ × rebar"}</span>`;
+    if (row.floor === "footing") floorTag = `<span class="${tagTeam}">${t("fixed")} ${fmtIN(row.floorAmt)}</span>`;
+    else if (row.floor === "plinth") floorTag = `<span class="${tagTeam}">${fmtIN(row.floorAmt)} ${t("min")}</span>`;
+    else if (row.floor === "slab") floorTag = `<span class="${tagSlab}">${fmtIN(row.floorAmt)} ${t("min")}</span>`;
+    else if (row.floor === "concrete") floorTag = `<span class="${tagTeam}">${fmtIN(row.floorAmt)} ${t("min")}</span>`;
+    else if (row.floor === "advance") floorTag = `<span class="${tagTeam}">${fmtIN(row.floorAmt)} – ${fmtIN(ceilFor(row, plan.inp))}</span>`;
+    else if (row.floor === "sidestone") floorTag = `<span class="${tagTeam}">${t("= col concrete")}</span>`;
+    else if (row.floor === "plaster") floorTag = `<span class="${tagPl}">${fmtIN(row.floorAmt)} ${t("min")}</span>`;
+    else if (row.floor === "outside_plaster") floorTag = `<span class="${tagPl}">${t("½ × inside")}</span>`;
+    else if (row.floor === "lintel") floorTag = `<span class="${tagTeam}">${t("max")} ${fmtIN(ceilFor(row, plan.inp))}</span>`;
+    else if (row.floor === "col_rebar") floorTag = `<span class="${tagTeam}">${t("fixed")} ${fmtIN(row.floorAmt)}</span>`;
+    else if (row.floor === "slab_rebar") floorTag = `<span class="${tagSlab}">${t("fixed")} ${fmtIN(row.floorAmt)}</span>`;
+    else if (row.floor === "centering") floorTag = `<span class="${tagTeam}">${t(row.name === "Slab Centering" ? "= rebar" : "½ × rebar")}</span>`;
 
     tr.innerHTML = `
       <td>${String(sno).padStart(2,"0")}</td>
-      <td><span class="milestone-cell">${row.name}${floorTag}</span></td>
+      <td><span class="milestone-cell">${t(row.name)}${floorTag}</span></td>
       <td class="num">${fmtPct(row.pct)}</td>
       <td class="num">${fmtRs(row.amount)}</td>
       <td class="num">${fmtRs(row.pending)}</td>
@@ -1279,7 +1261,7 @@ function renderAll() {
   finalRow.className = "final-row";
   finalRow.innerHTML = `
     <td></td>
-    <td><strong>Final Installment</strong> &nbsp;<em style="color:var(--ink-muted); font-style: italic;">on handover</em></td>
+    <td><strong>${t("Final Installment")}</strong> &nbsp;<em style="color:var(--ink-muted); font-style: italic;">${t("on handover")}</em></td>
     <td class="num">${fmtPct(plan.finalPct)}</td>
     <td class="num">${fmtRs(plan.finalInstallment)}</td>
     <td class="num">${fmtRs(0)}</td>
@@ -1289,7 +1271,7 @@ function renderAll() {
   const totalRow = document.createElement("tr");
   totalRow.className = "total-row";
   totalRow.innerHTML = `
-    <td colspan="3">TOTAL</td>
+    <td colspan="3">${t("TOTAL")}</td>
     <td class="num">${fmtRs(plan.grandTotal)}</td>
     <td></td>
   `;
@@ -1675,62 +1657,178 @@ function init() {
   renderAll();
 }
 
-// Hindi toggle: uses the googtrans cookie (which Google Translate reads on load)
-// then reloads. Reload is the only reliable way to switch translation on/off
-// because clearing a live translation via the inline select is flaky.
+// In-page bilingual: every translatable English string maps to Hindi.
+// Phase + item names + tag labels are also translated via t().
+const I18N_HI = {
+  // Header
+  "Labour Construction Agreement": "श्रम निर्माण समझौता",
+  "Payment": "भुगतान",
+  "Plan": "योजना",
+  "Builder": "बिल्डर",
+  // Panels
+  "Contract Details": "अनुबंध विवरण",
+  "For PDF": "PDF के लिए",
+  "Project Specs": "परियोजना विवरण",
+  "Inputs": "इनपुट",
+  "Minimums & Rounding": "न्यूनतम और राउंडिंग",
+  "Floors": "मंजिलें",
+  "Extra Work Rates": "अतिरिक्त कार्य दरें",
+  "Per Unit": "प्रति इकाई",
+  "Project Summary": "परियोजना सारांश",
+  "Live": "लाइव",
+  "Payment Plan": "भुगतान योजना",
+  "auto-allocated": "स्वतः-आवंटित",
+  // Fields
+  "Owner Name": "मालिक का नाम",
+  "Property Address": "संपत्ति का पता",
+  "Agreement Date": "समझौते की तारीख",
+  "Plot Area (sqft)": "प्लॉट क्षेत्र (वर्गफुट)",
+  "Built-up / Floor (sqft)": "निर्मित क्षेत्र / मंजिल (वर्गफुट)",
+  "Total Floors": "कुल मंजिलें",
+  "Footing Type": "नींव प्रकार",
+  "Full-Mat": "फुल-मैट",
+  "Box": "बॉक्स",
+  "Base Rate (Rs. per 100 sqft)": "आधार दर (रु. प्रति 100 वर्गफुट)",
+  "Slab Concrete Min (Rs.)": "स्लैब कंक्रीट न्यूनतम (रु.)",
+  "Plinth Beam Min (Rs.)": "प्लिंथ बीम न्यूनतम (रु.)",
+  "Plastering / Floor (Rs.)": "प्लास्टरिंग / मंजिल (रु.)",
+  // Help text
+  "G=1, G+1=2, G+2=3...": "G=1, G+1=2, G+2=3...",
+  "Mat: 1 mixer · Box: multi-pour (Rs. 65k)": "मैट: 1 मिक्सर · बॉक्स: मल्टी-पोर (रु. 65k)",
+  "10×10 chadari rate": "10×10 चदरी दर",
+  "All amounts rounded to the nearest Rs. 5,000.": "सभी राशि निकटतम रु. 5,000 तक राउंड की जाती है।",
+  "Charged on actuals if requested. Not part of payment plan above.": "अनुरोध पर वास्तविक लागत के आधार पर शुल्क लिया जाता है। ऊपर की भुगतान योजना का हिस्सा नहीं है।",
+  // Summary
+  "Total Built-up Area": "कुल निर्मित क्षेत्र",
+  "Total Project Cost": "कुल परियोजना लागत",
+  "Sum of Active %s": "सक्रिय %s का योग",
+  "Final Installment": "अंतिम किस्त",
+  "sqft": "वर्गफुट",
+  "floor": "मंजिल",
+  "floors": "मंजिलें",
+  "target ~95%": "लक्ष्य ~95%",
+  "of total": "कुल का",
+  // Badges
+  "on target": "लक्ष्य पर",
+  "re-balance": "पुनः-संतुलन",
+  "healthy": "स्वस्थ",
+  "too low": "बहुत कम",
+  "too high": "बहुत अधिक",
+  // Table
+  "Milestone": "मील का पत्थर",
+  "Amount": "राशि",
+  "Pending": "लंबित",
+  "TOTAL": "कुल",
+  "on handover": "हस्तांतरण पर",
+  // Phases
+  "Foundation": "नींव",
+  "Ground Floor": "ग्राउंड फ्लोर",
+  "First Floor": "पहली मंजिल",
+  "Second Floor": "दूसरी मंजिल",
+  "Third Floor": "तीसरी मंजिल",
+  "Fourth Floor": "चौथी मंजिल",
+  "Plastering": "प्लास्टरिंग",
+  "Terrace / Finishing": "छत / फिनिशिंग",
+  // Items
+  "Advance": "अग्रिम",
+  "PCC": "PCC",
+  "Footing Concrete": "नींव कंक्रीट",
+  "Footing Column Reinforcement": "नींव कॉलम सरिया",
+  "Footing Column Centering": "नींव कॉलम सेंटरिंग",
+  "Footing Column Concrete": "नींव कॉलम कंक्रीट",
+  "Sidestone Work": "साइडस्टोन कार्य",
+  "Plinth Beam Reinforcement": "प्लिंथ बीम सरिया",
+  "Plinth Beam Centering": "प्लिंथ बीम सेंटरिंग",
+  "Plinth Beam Concrete": "प्लिंथ बीम कंक्रीट",
+  "Column Reinforcement": "कॉलम सरिया",
+  "Column Centering": "कॉलम सेंटरिंग",
+  "Column Concrete": "कॉलम कंक्रीट",
+  "Lintel Level Block Work": "लिंटेल स्तर ब्लॉक कार्य",
+  "Lintel Concrete": "लिंटेल कंक्रीट",
+  "Post-Lintel Block Work": "पोस्ट-लिंटेल ब्लॉक कार्य",
+  "Slab Level Block Work": "स्लैब स्तर ब्लॉक कार्य",
+  "Slab Reinforcement": "स्लैब सरिया",
+  "Slab Centering": "स्लैब सेंटरिंग",
+  "Slab Concrete": "स्लैब कंक्रीट",
+  "Outside Plastering (all floors)": "बाहरी प्लास्टरिंग (सभी मंजिलें)",
+  "Roof Column": "छत कॉलम",
+  "Parapet Wall": "पैरापेट दीवार",
+  // Tag labels
+  "min": "न्यूनतम",
+  "max": "अधिकतम",
+  "fixed": "तय",
+  "½ × rebar": "½ × सरिया",
+  "= rebar": "= सरिया",
+  "= col concrete": "= कॉलम कंक्रीट",
+  "½ × inside": "½ × अंदर",
+  // Actions
+  "Generates a clean, owner-friendly PDF agreement with the payment schedule, dates & signature blocks.":
+    "भुगतान अनुसूची, तारीखों और हस्ताक्षर ब्लॉक के साथ एक स्वच्छ, मालिक-अनुकूल PDF समझौता बनाता है।",
+  "One sheet, ready to print.": "एक शीट, प्रिंट के लिए तैयार।",
+  "Reset All": "सब रीसेट करें",
+  "Download PDF": "PDF डाउनलोड करें",
+  "A working calculator. The contract is between Owner and Contractor.":
+    "एक कार्यशील कैलकुलेटर। यह अनुबंध मालिक और ठेकेदार के बीच है।",
+};
+
+let CURRENT_LANG = "en";
+
+// Translate an arbitrary English string (used by the JS render layer)
+function t(en) {
+  if (CURRENT_LANG !== "hi") return en;
+  // Handle "Inside Plastering — Ground Floor" → translate both halves
+  const dashIdx = en.indexOf(" — ");
+  if (dashIdx > -1) {
+    const a = en.slice(0, dashIdx);
+    const b = en.slice(dashIdx + 3);
+    return (I18N_HI[a] || a) + " — " + (I18N_HI[b] || b);
+  }
+  return I18N_HI[en] || en;
+}
+
+function applyLanguageToStaticDOM() {
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const en = el.dataset.i18n;
+    if (CURRENT_LANG === "hi") {
+      el.textContent = I18N_HI[en] || en;
+    } else {
+      el.textContent = en;
+    }
+  });
+}
+
 function wireHindiToggle() {
   const btn = document.getElementById("hindiToggle");
   if (!btn) return;
+  // Pick initial language from sessionStorage (or browser hint)
+  try {
+    const stored = sessionStorage.getItem("lang");
+    if (stored === "hi" || stored === "en") CURRENT_LANG = stored;
+    else {
+      const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
+      if (langs.some(l => l.startsWith("hi"))) CURRENT_LANG = "hi";
+    }
+  } catch (e) {}
 
-  function isTranslated() {
-    return /googtrans=(\/[^/]+)?\/hi/.test(document.cookie);
-  }
-  function setCookie(value) {
-    const host = location.hostname;
-    const parts = host.split(".");
-    const rootDomain = parts.length > 1 ? "." + parts.slice(-2).join(".") : host;
-    // Set on path / and on the root domain so the widget sees it on next load.
-    document.cookie = `googtrans=${value};path=/`;
-    document.cookie = `googtrans=${value};path=/;domain=${host}`;
-    document.cookie = `googtrans=${value};path=/;domain=${rootDomain}`;
-  }
-  function clearCookie() {
-    const expired = "; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-    const host = location.hostname;
-    const parts = host.split(".");
-    const rootDomain = parts.length > 1 ? "." + parts.slice(-2).join(".") : host;
-    document.cookie = "googtrans=" + expired;
-    document.cookie = `googtrans=${expired}; domain=${host}`;
-    document.cookie = `googtrans=${expired}; domain=${rootDomain}`;
-  }
-
-  // Reflect current state in the button label
   function refresh() {
-    if (isTranslated()) {
+    if (CURRENT_LANG === "hi") {
       btn.classList.add("active");
       btn.textContent = "English";
     } else {
       btn.classList.remove("active");
       btn.textContent = "हिंदी";
     }
+    document.documentElement.lang = CURRENT_LANG;
+    applyLanguageToStaticDOM();
+    renderAll();
   }
   refresh();
 
   btn.addEventListener("click", () => {
-    if (isTranslated()) clearCookie();
-    else setCookie("/en/hi");
-    location.reload();
+    CURRENT_LANG = CURRENT_LANG === "hi" ? "en" : "hi";
+    try { sessionStorage.setItem("lang", CURRENT_LANG); } catch (e) {}
+    refresh();
   });
-
-  // First-visit auto-translate when the browser prefers Hindi.
-  // Skip if the user has already toggled (cookie set, even to a non-hi value).
-  if (!/googtrans=/.test(document.cookie)) {
-    const langs = (navigator.languages || [navigator.language || ""]).map(l => l.toLowerCase());
-    if (langs.some(l => l.startsWith("hi"))) {
-      setCookie("/en/hi");
-      location.reload();
-    }
-  }
 }
 window.addEventListener("DOMContentLoaded", init);
 </script>
