@@ -634,7 +634,7 @@ function googleTranslateElementInit() {
           </div>
           <div class="field">
             <label>Plastering / Floor (Rs.)</label>
-            <input type="number" id="plasterPerFloor" value="25000">
+            <input type="number" id="plasterPerFloor" value="17000">
           </div>
           <div class="help" style="margin-top: 4px;">All amounts rounded to the nearest Rs. 5,000.</div>
         </div>
@@ -735,14 +735,23 @@ function googleTranslateElementInit() {
 // Within each bucket, weights below give a larger share to labour-intensive items
 // (concrete pours, centering/shuttering, block work).
 const BUDGET = {
-  advance:        0.15,
+  advance:        0.10, // capped at ADVANCE_MAX (1L) anyway
   foundation:     0.20,
-  floors:         0.40,   // split equally across N floors (40/N per floor)
-  insidePlaster:  0.10,   // split equally across N floors (10/N per floor)
-  outsidePlaster: 0.05,
-  parapet:        0.05,
+  floors:         0.54, // split equally across N floors (54/N per floor)
+  topExtras:      0.06, // Roof Column + Parapet Wall (top floor only)
+  plaster:        0.05, // inside (2/3) + outside (1/3) ; outside = ½ inside
   // final installment = 0.05 (the remaining 5%)
 };
+const FOUNDATION_SUB = { sidestone: 0.25, footingConcrete: 0.25, plinthConcrete: 0.25, rest: 0.25 };
+const FLOOR_SUB      = { column: 0.20, brick: 0.20, slab: 0.60 };
+const FOUNDATION_REST_NAMES = ["PCC","Footing Column Reinforcement","Footing Column Centering","Footing Column Concrete","Plinth Beam Reinforcement","Plinth Beam Centering"];
+const FLOOR_COL_GROUP_NAMES = ["Column Reinforcement","Column Centering","Column Concrete"];
+const FLOOR_BRICK_GROUP_NAMES = ["Lintel Level Block Work","Lintel Concrete","Post-Lintel Block Work","Slab Level Block Work"];
+const FLOOR_SLAB_GROUP_NAMES = ["Slab Reinforcement","Slab Centering","Slab Concrete"];
+const TOP_EXTRAS_ITEMS = [
+  { name: "Roof Column",  weight: 1, floor: null },
+  { name: "Parapet Wall", weight: 1, floor: null },
+];
 
 // Foundation post-advance — weight-distributed within the 20% bucket.
 // Heaviest weight: concrete pours (footing, plinth) — labour intensive.
@@ -766,6 +775,7 @@ const FLOOR_ITEMS = [
   { name: "Column Concrete",            weight: 1.5,  floor: "concrete" },
   { name: "Lintel Level Block Work",    weight: 2.5,  floor: null },
   { name: "Lintel Concrete",            weight: 3,    floor: "lintel" },
+  { name: "Post-Lintel Block Work",     weight: 2,    floor: null },
   { name: "Slab Level Block Work",      weight: 1,    floor: null },
   { name: "Slab Reinforcement",         weight: 1,    floor: "slab_rebar" },
   { name: "Slab Centering",             weight: 0,    floor: "centering" },
@@ -789,54 +799,41 @@ const DEFAULT_EXTRAS = [
 ========================================================= */
 function buildSections(N) {
   const sections = [];
+  const fb = BUDGET.foundation;
 
-  // S1: Advance (15%) — single locked item
-  sections.push({
-    phase: "Foundation",
-    budget: BUDGET.advance,
-    items: [{ name: "Advance", weight: 1, floor: "advance" }],
-  });
+  sections.push({ phase: "Foundation", budget: BUDGET.advance,
+    items: [{ name: "Advance", weight: 1, floor: "advance" }] });
+  // Foundation split into 4 sub-sections, each 25% of the 20% bucket
+  sections.push({ phase: "Foundation", budget: fb * FOUNDATION_SUB.footingConcrete,
+    items: [UNDERGROUND_ITEMS.find(i => i.name === "Footing Concrete")].map(i => ({ ...i })) });
+  sections.push({ phase: "Foundation", budget: fb * FOUNDATION_SUB.sidestone,
+    items: [UNDERGROUND_ITEMS.find(i => i.name === "Sidestone Work")].map(i => ({ ...i })) });
+  sections.push({ phase: "Foundation", budget: fb * FOUNDATION_SUB.plinthConcrete,
+    items: [UNDERGROUND_ITEMS.find(i => i.name === "Plinth Beam Concrete")].map(i => ({ ...i })) });
+  sections.push({ phase: "Foundation", budget: fb * FOUNDATION_SUB.rest,
+    items: UNDERGROUND_ITEMS.filter(i => FOUNDATION_REST_NAMES.includes(i.name)).map(i => ({ ...i })) });
 
-  // S2: Foundation post-advance (20%)
-  sections.push({
-    phase: "Foundation",
-    budget: BUDGET.foundation,
-    items: UNDERGROUND_ITEMS.map(i => ({ ...i })),
-  });
-
-  // S3..S(2+N): Each floor (40/N % each)
+  // Per-floor: 3 sub-sections (column, brick, slab) within (54/N)% per-floor budget
+  const perFloor = BUDGET.floors / N;
   for (let fi = 0; fi < N; fi++) {
-    sections.push({
-      phase: FLOOR_NAMES[fi],
-      budget: BUDGET.floors / N,
-      items: FLOOR_ITEMS.map(i => ({ ...i })),
-    });
+    sections.push({ phase: FLOOR_NAMES[fi], budget: perFloor * FLOOR_SUB.column,
+      items: FLOOR_ITEMS.filter(i => FLOOR_COL_GROUP_NAMES.includes(i.name)).map(i => ({ ...i })) });
+    sections.push({ phase: FLOOR_NAMES[fi], budget: perFloor * FLOOR_SUB.brick,
+      items: FLOOR_ITEMS.filter(i => FLOOR_BRICK_GROUP_NAMES.includes(i.name)).map(i => ({ ...i })) });
+    sections.push({ phase: FLOOR_NAMES[fi], budget: perFloor * FLOOR_SUB.slab,
+      items: FLOOR_ITEMS.filter(i => FLOOR_SLAB_GROUP_NAMES.includes(i.name)).map(i => ({ ...i })) });
   }
 
-  // S(3+N): Inside plastering — N items in one section (10%)
-  sections.push({
-    phase: "Plastering",
-    budget: BUDGET.insidePlaster,
+  // Top-floor extras (6%): Roof Column + Parapet Wall
+  sections.push({ phase: "Terrace / Finishing", budget: BUDGET.topExtras,
+    items: TOP_EXTRAS_ITEMS.map(i => ({ ...i })) });
+
+  // Plaster (5% combined): Inside (2/3) + Outside (1/3, derived as ½ × inside)
+  sections.push({ phase: "Plastering", budget: BUDGET.plaster * (2/3),
     items: Array.from({ length: N }, (_, fi) => ({
-      name: `Inside Plastering — ${FLOOR_NAMES[fi]}`,
-      weight: 1,
-      floor: "plaster",
-    })),
-  });
-
-  // S(4+N): Outside plastering (5%)
-  sections.push({
-    phase: "Plastering",
-    budget: BUDGET.outsidePlaster,
-    items: [{ name: "Outside Plastering (all floors)", weight: 1, floor: "outside_plaster" }],
-  });
-
-  // S(5+N): Parapet (5%)
-  sections.push({
-    phase: "Terrace / Finishing",
-    budget: BUDGET.parapet,
-    items: [{ name: "Parapet Wall", weight: 1, floor: null }],
-  });
+      name: `Inside Plastering — ${FLOOR_NAMES[fi]}`, weight: 1, floor: "plaster" })) });
+  sections.push({ phase: "Plastering", budget: BUDGET.plaster * (1/3),
+    items: [{ name: "Outside Plastering (all floors)", weight: 1, floor: "outside_plaster" }] });
 
   return sections;
 }
@@ -855,7 +852,7 @@ function getInputs() {
     footingType:     val("footingType", "Full-Mat"),
     plinthMin:       num("plinthMin", 30000),
     slabMin:         num("slabMin", 50000),
-    plasterPerFloor: num("plasterPerFloor", 25000),
+    plasterPerFloor: num("plasterPerFloor", 17000),
     roundTo:         ROUND_TO,
   };
 }
@@ -868,6 +865,7 @@ const SIDESTONE_RATE  = 66;     // Rs. per running foot of stone work
 const SIDESTONE_RATIO = 0.134;  // running ft per sqft of building area
 const SMALL_BUILDUP   = 1000;   // total built-up below this → halve all mins/caps
 const MIN_PER_STEP    = 5000;   // every milestone line is at least Rs. 5,000
+const FINAL_MIN       = 20000;  // final installment must be at least Rs. 20,000
 
 // All mins/caps are halved when the total built-up area is small.
 function minScale(inp) {
@@ -900,28 +898,17 @@ function slabRebarTier(inp) {
   return 30000;
 }
 
-// Footing concrete — fixed value tiered by per-floor BUA. Mat is more expensive
-// (covers the whole footprint) than Box (separate pads under each column).
-function matFootingTier(inp) {
-  const a = inp.buaPerFloor;
-  if (a <= 1500) return 50000;
-  if (a <= 2500) return 80000;
-  return 80000;
-}
-function boxFootingTier(inp) {
-  const a = inp.buaPerFloor;
-  if (a <= 1500) return 30000;
-  if (a <= 2500) return 50000;
-  return 50000;
-}
+// Footing concrete — flat caps. Mat is more expensive than Box (multi-pour pads).
+function matFootingTier(inp) { return 50000; }
+function boxFootingTier(inp) { return 30000; }
 function footingTier(inp) {
   return inp.footingType === "Full-Mat" ? matFootingTier(inp) : boxFootingTier(inp);
-}
 }
 
 function floorValue(row, inp) {
   const k = minScale(inp);
-  const scale = v => Math.round(v * k);
+  // Round-up tier values to ROUND_TO so locks land on the rounding grid even when halved.
+  const scale = v => Math.ceil(v * k / ROUND_TO) * ROUND_TO;
   let m;
   switch (row.floor) {
     case "advance":  m = scale(ADVANCE_MIN); break;
@@ -1014,29 +1001,28 @@ function computePlan() {
   const inp = getInputs();
   const N = inp.totalFloors;
   const totalArea = inp.buaPerFloor * N;
-  // Mat is the baseline (covers full footprint, more material/labour). Box uses
-  // small separate pads → cheaper. The Box saving discounts the grand total.
-  const baseCost = totalArea * inp.ratePer100 / 100;
-  const boxSaving = inp.footingType === "Box"
-    ? Math.round((matFootingTier(inp) - boxFootingTier(inp)) * minScale(inp))
-    : 0;
-  const totalCost = baseCost - boxSaving;
+  // Total project cost is fixed at rate × area regardless of footing type.
+  // Box saving (Mat-Box footing diff) is later routed to Parapet Wall (Pass 2.65).
+  const totalCost = totalArea * inp.ratePer100 / 100;
 
   const sections = buildSections(N);
   const computed = [];
 
-  // Pass 1: water-fill each section, round each item
+  // Pass 1: water-fill each section. Plaster rounds UP to honor 17k min on the 5k grid.
   for (const section of sections) {
     const budgetAmt = section.budget * totalCost;
     const alloc = allocateSection(section.items, budgetAmt, inp);
 
     for (const item of section.items) {
       const raw = alloc.get(item) || 0;
+      const rounded = item.floor === "plaster"
+        ? mceil(raw, inp.roundTo)
+        : mround(raw, inp.roundTo);
       computed.push({
         phase: section.phase,
         name: item.name,
         floor: item.floor,
-        amount: mround(raw, inp.roundTo),
+        amount: rounded,
         floorAmt: floorValue(item, inp),
         active: true,
       });
@@ -1088,7 +1074,8 @@ function computePlan() {
   // in roundTo (5k) increments until final hits target. Per-item floors are
   // honoured (advance 50k, concrete 20k, slab/footing/plinth mins, plaster min).
   // Outside Plastering is skipped — it's derived from inside.
-  const targetFinal = mround(0.05 * totalCost, inp.roundTo);
+  // Final must be >= max(20k, 5% × total)
+  const targetFinal = Math.max(FINAL_MIN, mround(0.05 * totalCost, inp.roundTo));
   for (let safety = 0; safety < 500; safety++) {
     const currentSum = computed.reduce((s, r) => s + r.amount, 0);
     const currentFinal = totalCost - currentSum;
@@ -1133,6 +1120,32 @@ function computePlan() {
     }
   }
 
+  // Pass 2.65: When Box footing is chosen, the saving (Mat-Box footing diff) is
+  // routed entirely to Parapet Wall — visibility on the trade-off.
+  if (inp.footingType === "Box") {
+    const k = minScale(inp);
+    const saving = mround(Math.max(0, (matFootingTier(inp) - boxFootingTier(inp)) * k), inp.roundTo);
+    const parapet = computed.find(r => r.name === "Parapet Wall");
+    if (parapet) parapet.amount += saving;
+  }
+
+  // Pass 2.7: Safety. Final installment must be >= FINAL_MIN. For very tight
+  // projects, allow trim below tier-locked floors (down to MIN_PER_STEP).
+  for (let safety = 0; safety < 500; safety++) {
+    const sum = computed.reduce((s, r) => s + r.amount, 0);
+    if (totalCost - sum >= FINAL_MIN) break;
+    const cuttable = computed
+      .filter(r => r.floor !== "outside_plaster" && r.floor !== "centering" && r.floor !== "sidestone")
+      .filter(r => r.amount - MIN_PER_STEP >= inp.roundTo)
+      .sort((a, b) => b.amount - a.amount);
+    if (cuttable.length === 0) break;
+    cuttable[0].amount -= inp.roundTo;
+    if (outsideRow && insideRows.length > 0) {
+      const insideTotal = insideRows.reduce((s, r) => s + r.amount, 0);
+      outsideRow.amount = Math.max(MIN_PER_STEP, mround(insideTotal / 2, inp.roundTo));
+    }
+  }
+
   // Pass 3: derive pct, cumulative, pending
   let cumulative = 0;
   let sumPct = 0;
@@ -1158,6 +1171,10 @@ function computePlan() {
 function mround(value, multiple) {
   if (multiple <= 0) return value;
   return Math.round(value / multiple) * multiple;
+}
+function mceil(value, multiple) {
+  if (multiple <= 0) return value;
+  return Math.ceil(value / multiple) * multiple;
 }
 
 /* =========================================================
@@ -1583,7 +1600,7 @@ const DEFAULT_INPUTS = {
   footingType: "Full-Mat",
   plinthMin: 30000,
   slabMin: 50000,
-  plasterPerFloor: 25000,
+  plasterPerFloor: 17000,
 };
 const INPUT_IDS = Object.keys(DEFAULT_INPUTS);
 
